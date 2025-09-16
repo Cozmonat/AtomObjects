@@ -133,7 +133,7 @@ struct HomeView: View {
 
 ## Actions
 
-If you have recurring logic applied to the atoms inside a specific root, you can wrap it inside the AtomRootAction 
+If you have recurring logic applied to the atoms inside a specific root, you can wrap it inside the AtomObjectsAction 
 object and reuse it in the app. 
 
 For example, we have a simple counter atom:
@@ -155,7 +155,7 @@ What if you want to reuse configurable increment action in various views? It is 
 the code example below. The action in the example have a configurable increment value. 
 
 ```swift
-    struct IncrementCounter: AtomRootAction {
+    struct IncrementCounter: AtomObjectsAction {
         
         var value: Int
         
@@ -188,6 +188,31 @@ The action from the example above can be stored and cashed inside consuming view
         
             Button {
                 increment()
+            } label: {
+                Text("Increment counter: \(counter)")
+            }
+        }
+    } 
+```
+
+Any AtomObjectsAction execution can be awaited by accessing its projectedValue:
+
+```swift
+    struct CounterView: View {
+        
+        @AtomState(\AtomObjects.counter)
+        var counter
+    
+        @AtomAction(AtomObjects.IncrementCounter(by: 1))
+        var increment
+    
+        var body: some View {
+        
+            Button {
+                Task {
+                    await $increment()
+                    // You do additional stuff here after the action finished
+                }
             } label: {
                 Text("Increment counter: \(counter)")
             }
@@ -231,27 +256,3 @@ If you need to configure the action upon execution, it can be done by directly d
     }     
 ```
 
-If you need access to multiple roots inside one action, it is possible to do so by making the action a property wrapper:
-
-```swift
-    @propertyWrapper struct IncrementCounterAction: DynamicProperty, Equatable {
-    
-        // Performance optimization: any action is always identical to another action of the same type 
-        static func == (lhs: Self, rhs: Self) -> Bool { true }
-        
-        @AtomBinding(\AtomObjects.counter)
-        var counter
-        
-        var wrappedValue: (_ value: Int) -> Void {
-            return { value in
-                Task { await projectedValue(value) }
-            }
-        }
-        
-        var projectedValue: (_ value: Int) async -> Void {
-            return { @MainActor value in 
-                counter += value 
-            }
-        }
-    }
-```

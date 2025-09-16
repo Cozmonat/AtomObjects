@@ -14,7 +14,7 @@ extension AtomObjects {
         static var defaultValue: Float = 0
     }
 
-    struct IncrementCounter: AtomRootAction {
+    struct IncrementCounter: AtomObjectsAction {
         
         var value: Float
         
@@ -30,7 +30,7 @@ extension AtomObjects {
         }
     }
     
-    struct DecrementCounter: AtomRootAction {
+    struct DecrementCounter: AtomObjectsAction {
         
         var value: Float
         
@@ -40,7 +40,7 @@ extension AtomObjects {
         
         func perform(with root: AtomObjects) async {
             
-            @AtomValue(root.counter) var counter;
+            @AtomValue(\.counter, in: root) var counter;
             
             counter -= value
         }

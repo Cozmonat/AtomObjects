@@ -28,6 +28,9 @@ SOFTWARE.
 import SwiftUI
 import Combine
 
+@available(*, deprecated, message: "Use AtomState instead.")
+public typealias AtomBinding = AtomState
+
 /// A property wrapper type that can read and write a value of a specific atom and refreshes views when the value is changed.
 @propertyWrapper
 public struct AtomState<Root, Atom, Value>: DynamicProperty, Equatable where Root: AtomRoot, Atom: AtomObject, Atom.Value == Value {

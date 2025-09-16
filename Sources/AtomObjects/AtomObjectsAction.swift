@@ -23,16 +23,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
  
 */
-    
 
-public protocol AtomRootAction {
+
+@available(*, deprecated, message: "Use AtomObjectsAction instead.")
+public typealias AtomRootAction = AtomObjectsAction
+
+public protocol AtomObjectsAction {
     
     associatedtype Root: AtomRoot
     
     func perform(with root: Root) async
 }
 
-public extension AtomRootAction {
+public extension AtomObjectsAction {
     
     func perform(with root: Root) {
         Task {

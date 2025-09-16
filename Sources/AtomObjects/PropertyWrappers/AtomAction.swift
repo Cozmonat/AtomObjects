@@ -29,7 +29,7 @@ import SwiftUI
 
 /// A property wrapper type that exposes the invocation of an action of the specified type with the actual root.
 @propertyWrapper
-public struct AtomAction<Action>: DynamicProperty, Equatable where Action: AtomRootAction {
+public struct AtomAction<Action>: DynamicProperty, Equatable where Action: AtomObjectsAction {
     
     public typealias Root = Action.Root
     public typealias SyncInvocation = () -> Void

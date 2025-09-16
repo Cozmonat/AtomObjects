@@ -32,7 +32,7 @@ struct ContentView: View {
 
 struct Controls: View {
     
-    @AtomBinding(\AtomObjects.counter)
+    @AtomState(\AtomObjects.counter)
     var counter
     
     @AtomAction(AtomObjects.IncrementCounter(by: 1))
@@ -166,8 +166,10 @@ struct QuaternaryView: View {
 
 
 struct ContentView_Previews: PreviewProvider {
+    static var root = AtomObjects()
+    
     static var previews: some View {
-        AtomScope(root: AtomObjects()) {
+        AtomScope(root: root) {
             ContentView()
         }
     }

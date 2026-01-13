@@ -5,6 +5,8 @@ import Foundation
 
 @testable import AtomObjects
 
+// Actual tests are implemented inside AtomObjects/TestApp
+
 final class AtomObjectsTests: QuickSpec {
     override func spec() {
         

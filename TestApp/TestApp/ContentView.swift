@@ -22,9 +22,6 @@ struct ContentView: View {
             
             TertiaryView()
                 .atomScope(root: AtomObjects())
-            
-            QuaternaryView()
-                .atomScope(root: AtomObjects())
         }
         .padding()
     }
@@ -47,24 +44,28 @@ struct Controls: View {
     var body: some View {
         HStack {
             Button {
-                Task {
-                    await $decrement()
-                }
+                decrement()
             } label: {
                 Image(systemName: "minus.circle.fill")
                     .font(.title)
             }
+            .accessibilityIdentifier("decrement")
             
-            Slider(value: $counter, in: 0...10) {
-                isEditing = $0
+            Slider(value: $counter, in: 0...10, onEditingChanged: { editing in
+                isEditing = editing
+            }) {
+                Text("Value")
             }
             
             Button {
-                increment()
+                Task {
+                    await $increment()
+                }
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.title)
             }
+            .accessibilityIdentifier("increment")
         }
     }
 }
@@ -72,7 +73,7 @@ struct Controls: View {
 struct SecondaryView: View {
     
     @AtomState(\AtomObjects.counter)
-    var counter
+    var counter: Float
     
     var body: some View {
         VStack {
@@ -101,6 +102,7 @@ struct TertiaryView: View {
                     Image(systemName: "minus.circle.fill")
                         .font(.title)
                 }
+                .accessibilityIdentifier("tertiaryDecrement")
                 
                 Spacer()
                 
@@ -114,6 +116,7 @@ struct TertiaryView: View {
                     Image(systemName: "plus.circle.fill")
                         .font(.title)
                 }
+                .accessibilityIdentifier("tertiaryIncrement")
             }
             
             Button {
@@ -122,48 +125,11 @@ struct TertiaryView: View {
                 Text("Rewrite atom")
             }
             .buttonStyle(.borderedProminent)
-            .accessibilityLabel("rewrite")
+            .accessibilityIdentifier("rewrite")
         }
         .padding(.vertical)
     }
 }
-
-struct QuaternaryView: View {
-    
-    @AtomState(\AtomObjects.counter)
-    var counter
-    
-    @EnvironmentObject
-    var dispatcher: AtomObjects
-    
-    var body: some View {
-        VStack {
-            HStack {
-                Button {
-                    dispatcher.dispatch(AtomObjects.DecrementCounter(by: counter == 0 ? 1 : abs(counter)))
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .font(.title)
-                }
-                
-                Spacer()
-                
-                Text("Quaternary counter: \(Int(counter))")
-                
-                Spacer()
-                
-                Button {
-                    AtomObjects.IncrementCounter(by: counter == 0 ? 1 : abs(counter)).perform(with: dispatcher)
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title)
-                }
-            }
-        }
-        .padding(.vertical)
-    }
-}
-
 
 struct ContentView_Previews: PreviewProvider {
     static var root = AtomObjects()
@@ -174,3 +140,4 @@ struct ContentView_Previews: PreviewProvider {
         }
     }
 }
+

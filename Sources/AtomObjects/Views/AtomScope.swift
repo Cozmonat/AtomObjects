@@ -29,8 +29,7 @@ import SwiftUI
 
 public struct AtomScope<Root, Content>: View where Root: AtomRoot, Content: View {
     
-    @StateObject
-    private var root: Root
+    @StateObject private var root: Root
     
     private var content: () -> Content
     

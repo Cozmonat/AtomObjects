@@ -28,35 +28,28 @@ SOFTWARE.
 import SwiftUI
 import Combine
 
-@available(*, deprecated, message: "Use AtomState instead.")
-public typealias AtomBinding = AtomState
-
 /// A property wrapper type that can read and write a value of a specific atom and refreshes views when the value is changed.
-@propertyWrapper
-public struct AtomState<Root, Atom, Value>: DynamicProperty, Equatable where Root: AtomRoot, Atom: AtomObject, Atom.Value == Value {
+@propertyWrapper public struct AtomState<Root, Atom, Value>: @MainActor DynamicProperty, Equatable
+    where Root: AtomRoot, Atom: AtomObject, Atom.Value == Value {
     
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.keyPath == rhs.keyPath
     }
     
-    @EnvironmentObject
-    private var root: Root
+    @EnvironmentObject private var root: Root
     
     private var keyPath: ReferenceWritableKeyPath<Root, Atom>
     private var setter: ((_ newValue: Value, _ atomObject: Atom) -> Void)?
     
-    @StateObject
-    private var observer = Observer()
+    @StateObject private var observer = Observer()
     
-    @MainActor
-    public var wrappedValue: Value {
+    @MainActor public var wrappedValue: Value {
         get { observer.value } nonmutating set {
             setter?(newValue, observer.atom) ?? observer.atom.setThenNotEqual(newValue)
         }
     }
     
-    @MainActor
-    public var projectedValue: Binding<Value> {
+    @MainActor public var projectedValue: Binding<Value> {
         Binding { observer.value } set: { newValue in
             setter?(newValue, observer.atom) ?? observer.atom.setThenNotEqual(newValue)
         }
@@ -68,7 +61,7 @@ public struct AtomState<Root, Atom, Value>: DynamicProperty, Equatable where Roo
     ///   - keyPath: A key path to a specific atom in the root.
     ///   - root: An atom root type.
     ///   - set: An in-place atom value setter.
-    public init(
+    @MainActor public init(
         _ keyPath: ReferenceWritableKeyPath<Root, Atom>,
         root: Root.Type = Root.self,
         set: ((_ newValue: Value, _ atomObject: Atom) -> Void)? = nil
@@ -77,7 +70,7 @@ public struct AtomState<Root, Atom, Value>: DynamicProperty, Equatable where Roo
         self.setter = set
     }
     
-    public mutating func update() {
+    @MainActor public mutating func update() {
         observer.resolve(keyPath, root: root)
     }
 }
@@ -128,3 +121,4 @@ private extension AtomState {
         }
     }
 }
+

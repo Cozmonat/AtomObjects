@@ -29,8 +29,7 @@ import SwiftUI
 
 internal struct AtomScopeViewModifier<Root>: ViewModifier where Root: AtomRoot {
     
-    @StateObject
-    private var root: Root
+    @StateObject private var root: Root
     
     public func body(content: Content) -> some View {
         content.environmentObject(root)

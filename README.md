@@ -1,21 +1,21 @@
 # AtomObjects for SwiftUI
 
 [![License](https://img.shields.io/badge/license-MIT-ff69b4.svg)](https://github.com/kzlekk/AtomObjects/raw/master/LICENSE)
-![Language](https://img.shields.io/badge/swift-5.7-orange.svg)
-![Coverage](https://img.shields.io/badge/coverage-78%25-green)
+![Language](https://img.shields.io/badge/swift-6.2-orange.svg)
+![Coverage](https://img.shields.io/badge/coverage-85%25-green)
 
 AtomObjects is a lightweight state management library for SwiftUI. It allows building reusable shared and scoped 
-states for SwiftUI applications with minimum boilerplate code.
+states for SwiftUI applications with minimal boilerplate code.
 
-The current version of the library is considered stable and production ready. There is no intention to make changes
+The current version of the library is considered stable and production-ready. There is no intention to make changes
 to the API other than bug fixes.
 
 ## Motivation
 
 The main idea of AtomObject is to use small "decentralized" atom state primitives instead of a centralized store or 
 data model.  Atom objects easily allow pinpoint refreshes of SwiftUI views instead of trying to think out an 
-efficient update strategy for bigger data models. Although it is not encouraged, you can implement complex state value 
-provided by a single AtomObject if you'll wish so.
+efficient update strategy for bigger data models. Although it is not encouraged, you can implement complex state values 
+provided by a single AtomObject if you wish to.
 
 ## Installation
 
@@ -25,7 +25,7 @@ Add "AtomObjects" dependency via integrated Swift Package Manager in XCode
 
 ## Setup
 
-In the first step you need to implement an atom class conforming to the AtomObject protocol. This will be your shared 
+In the first step, you need to implement an atom class conforming to the AtomObject protocol. This will be your shared 
 object with the state value:
 
 ```swift
@@ -43,7 +43,7 @@ class EditingAtom: AtomObject {
 }
 ```
 
-The next step is registering unique key associated with the default atom value:
+The next step is registering a unique key associated with the default atom value:
 
 ```swift
 struct EditingAtomKey: AtomObjectKey {
@@ -52,8 +52,9 @@ struct EditingAtomKey: AtomObjectKey {
 }
 ```
 
-At last you need to implement AtomRoot protocol or subclass/extend AtomObjects class and register your atom in the 
-container. Atom object key is intended to be used as the identifier of an atom path inside root container:
+At last, you need to implement the AtomRoot protocol or subclass/extend the AtomObjects class and register your
+atom in the container. The Atom object key is intended to be used as the identifier of an atom path inside the
+root container:
 
 ```swift
 extension AtomObjects {
@@ -78,9 +79,9 @@ extension AtomObjects {
 
 ## Usage
 
-Put atom root scope outside of the state consuming view. Atoms will be resolved in the root container provided by 
-the nearest scope. Scopes can be nested and injected in any view. That way you can reuse business logic associated with 
-the specific atom root in the different places in your app.
+Put atom root scope outside of the state-consuming view. Atoms will be resolved in the root container provided by 
+the nearest scope. Scopes can be nested and injected in any view. That way, you can reuse business logic associated 
+with the specific atom root in different places in your app.
 
 ```swift
 @main
@@ -95,7 +96,7 @@ struct TheApp: App {
 }
 ```
 
-You can also use view modifier on view to set new atom root. The result will be the same as wraping view with AtomScope:
+You can also use view modifier on view to set new atom root. The result will be the same as wrapping view with AtomScope:
 
 ```swift
 @main
@@ -151,8 +152,8 @@ For example, we have a simple counter atom:
     }
 ```
 
-What if you want to reuse configurable increment action in various views? It is possible by imlementing the action as in
-the code example below. The action in the example have a configurable increment value. 
+What if you want to reuse configurable increment action in various views? It is possible by implementing the action as in
+the code example below. The action in the example has a configurable increment value. 
 
 ```swift
     struct IncrementCounter: AtomObjectsAction {
@@ -173,7 +174,7 @@ the code example below. The action in the example have a configurable increment 
     }
 ```
 
-The action from the example above can be stored and cashed inside consuming view, and called then needed:
+The action from the example above can be stored and cashed inside the consuming view, and called when needed:
 
 ```swift
     struct CounterView: View {
@@ -195,7 +196,7 @@ The action from the example above can be stored and cashed inside consuming view
     } 
 ```
 
-Any AtomObjectsAction execution can be awaited by accessing its projectedValue:
+The action can also be awaited to run additional jobs after the action is finished, if needed:
 
 ```swift
     struct CounterView: View {
@@ -211,7 +212,7 @@ Any AtomObjectsAction execution can be awaited by accessing its projectedValue:
             Button {
                 Task {
                     await $increment()
-                    // You do additional stuff here after the action finished
+                    // Run additional jobs after
                 }
             } label: {
                 Text("Increment counter: \(counter)")
@@ -219,40 +220,3 @@ Any AtomObjectsAction execution can be awaited by accessing its projectedValue:
         }
     } 
 ```
-
-If you need to configure the action upon execution, it can be done by directly dispatching action from atom root:
-
-```swift
-
-    struct CounterView: View {
-        
-        @AtomState(\AtomObjects.counter)
-        var counter
-    
-        @EnvironmentObject
-        var root: AtomObjects
-    
-        var body: some View {
-        
-            HStack {
-                Button {
-                    root.dispatch(IncrementCounter(by: count * 2))
-                } label: {
-                    Text("Increment")
-                }
-                .buttonStyle(.borderedProminent)
-                            
-                Text("Counter: \(counter)")
-                
-                Button {
-                    // It is possible to use action execution method notation
-                    DecrementCounter(by: count * 2).perform(with: root)
-                } label: {
-                    Text("Decrement")
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-    }     
-```
-

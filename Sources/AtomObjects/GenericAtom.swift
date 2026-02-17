@@ -29,8 +29,7 @@ import Combine
 
 public class GenericAtom<Value>: AtomObject {
     
-    @Published
-    public var value: Value
+    @Published public var value: Value
     
     public required init(value: Value) {
         self.value = value

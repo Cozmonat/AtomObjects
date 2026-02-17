@@ -25,21 +25,9 @@ SOFTWARE.
 */
 
 
-@available(*, deprecated, message: "Use AtomObjectsAction instead.")
-public typealias AtomRootAction = AtomObjectsAction
-
 public protocol AtomObjectsAction {
     
     associatedtype Root: AtomRoot
     
-    func perform(with root: Root) async
-}
-
-public extension AtomObjectsAction {
-    
-    func perform(with root: Root) {
-        Task {
-            await perform(with: root)
-        }
-    }
+    @MainActor func perform(with root: Root) async
 }

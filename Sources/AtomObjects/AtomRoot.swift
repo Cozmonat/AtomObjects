@@ -52,6 +52,7 @@ public struct RootStorage {
     public init() {}
 }
 
+
 public protocol AtomRoot: ObservableObject where ObjectWillChangePublisher == ObservableObjectPublisher {
     
     var parent: (any AtomRoot)? { get set }
@@ -60,9 +61,6 @@ public protocol AtomRoot: ObservableObject where ObjectWillChangePublisher == Ob
     var roots: RootStorage { get set }
     
     var version: AnyHashable { get set }
-    
-    func dispatch<Action>(_ action: Action) where Action: AtomObjectsAction, Action.Root == Self
-    func dispatch<Action>(_ action: Action) async where Action: AtomObjectsAction, Action.Root == Self
 }
 
 public extension AtomRoot {
@@ -105,15 +103,5 @@ public extension AtomRoot {
         objectWillChange.send()
         version = UUID()
         parent?.upgrade()
-    }
-    
-    func dispatch<Action>(_ action: Action) where Action: AtomObjectsAction, Action.Root == Self {
-        Task {
-            await action.perform(with: self)
-        }
-    }
-    
-    func dispatch<Action>(_ action: Action) async where Action: AtomObjectsAction, Action.Root == Self {
-        await action.perform(with: self)
     }
 }

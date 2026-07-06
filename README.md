@@ -4,88 +4,79 @@
 ![Language](https://img.shields.io/badge/swift-6.2-orange.svg)
 ![Coverage](https://img.shields.io/badge/coverage-85%25-green)
 
-AtomObjects is a lightweight state management library for SwiftUI. It allows building reusable shared and scoped 
-states for SwiftUI applications with minimal boilerplate code.
+AtomObjects is a lightweight state management library for SwiftUI. It lets you build reusable, scoped state with minimal boilerplate by using small, decentralized "atom" primitives instead of a centralized store.
 
-The current version of the library is considered stable and production-ready. There is no intention to make changes
-to the API other than bug fixes.
+## Requirements
+
+- iOS 17.0+ / macOS 14.0+ / watchOS 10.0+ / tvOS 17.0+
+- Swift 6.2+
 
 ## Motivation
 
-The main idea of AtomObject is to use small "decentralized" atom state primitives instead of a centralized store or 
-data model.  Atom objects easily allow pinpoint refreshes of SwiftUI views instead of trying to think out an 
-efficient update strategy for bigger data models. Although it is not encouraged, you can implement complex state values 
-provided by a single AtomObject if you wish to.
+Rather than managing a single large data model, AtomObjects uses small, independent atom state primitives. This approach enables pinpoint view refreshes without having to design a complex update strategy for a bigger model. While you *can* implement complex state within a single atom, the library is designed around keeping atoms small and focused.
+
+AtomObjects leverages Swift's `@Observable` macro for automatic change tracking and efficient view updates — no Combine, `ObservableObject`, or `@Published` required.
 
 ## Installation
 
 ### Swift Package Manager
 
-Add "AtomObjects" dependency via integrated Swift Package Manager in XCode
+Add the AtomObjects package to your Xcode project via **File → Add Package Dependencies...**, or add it to your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/kzlekk/AtomObjects.git", from: "1.0.0")
+]
+```
+
+## Concepts
+
+| Symbol | Role |
+|--------|------|
+| `AtomObject` | Protocol for atom state values |
+| `GenericAtom<Value>` | Built-in atom implementation for any `Sendable` value |
+| `AtomObjectKey` | Unique key that defines a default value for an atom |
+| `AtomRoot` | `@Observable` container that holds atoms (and nested roots) |
+| `AtomObjects` | Ready-to-subclass `AtomRoot` with `Equatable` support |
+| `AtomScope` / `.atomScope()` | View wrapper / modifier that injects a root into the environment |
+| `@AtomState` | Property wrapper that reads/writes an atom and refreshes the view |
+| `@AtomAction` | Property wrapper that invokes an `AtomObjectsAction` against the root |
+| `@AtomValue` | Property wrapper for direct atom access (e.g., inside actions) |
 
 ## Setup
 
-In the first step, you need to implement an atom class conforming to the AtomObject protocol. This will be your shared 
-object with the state value:
+### 1. Define an atom key
 
-```swift
-// Instead of implementing AtomObject protocol by yourself, you can just use GenericAtom class with the similar basic
-// implementation as below:
-class EditingAtom: AtomObject {
-    
-    // Published property wrapper is needed allowing to trigger value updates.
-    // You can trigger an update manually by calling objectWillChange.send() where appropriate.
-    @Published var value: Bool
-    
-    required init() {
-        value = false
-    }
-}
-```
-
-The next step is registering a unique key associated with the default atom value:
+Every atom is identified by a key that provides a default value:
 
 ```swift
 struct EditingAtomKey: AtomObjectKey {
-
-    static let defaultValue = false
+    static var defaultValue: Bool = false
 }
 ```
 
-At last, you need to implement the AtomRoot protocol or subclass/extend the AtomObjects class and register your
-atom in the container. The Atom object key is intended to be used as the identifier of an atom path inside the
-root container:
+### 2. Register the atom on your root
+
+Extend `AtomObjects` (or a custom subclass) to expose the atom as a property. The key is used as the identifier inside the root's storage:
 
 ```swift
 extension AtomObjects {
-     
-    var isEditing: EditingAtom {
-        get { return self[EditingAtomKey.self] }
-        set { self[EditingAtomKey.self] = newValue }
-    }
-```
-
-Implementation option using GenericAtom:
-
-```swift
-extension AtomObjects {    
-     
     var isEditing: GenericAtom<Bool> {
-        get { return self[EditingAtomKey.self] }
+        get { self[EditingAtomKey.self] }
         set { self[EditingAtomKey.self] = newValue }
     }
 }
 ```
 
-## Usage
+> **Tip:** For most use cases, `GenericAtom<Value>` is all you need. You only need to implement `AtomObject` yourself if you require custom behavior.
 
-Put atom root scope outside of the state-consuming view. Atoms will be resolved in the root container provided by 
-the nearest scope. Scopes can be nested and injected in any view. That way, you can reuse business logic associated 
-with the specific atom root in different places in your app.
+### 3. Scope the root in your view hierarchy
+
+Place an `AtomScope` at the root of your view hierarchy (or use the `.atomScope()` modifier). Atoms are resolved from the nearest scope in the environment:
 
 ```swift
 @main
-struct TheApp: App {
+struct MyApp: App {
     var body: some Scene {
         WindowGroup {
             AtomScope(root: AtomObjects()) {
@@ -96,11 +87,11 @@ struct TheApp: App {
 }
 ```
 
-You can also use view modifier on view to set new atom root. The result will be the same as wrapping view with AtomScope:
+Or equivalently with the view modifier:
 
 ```swift
 @main
-struct TheApp: App {
+struct MyApp: App {
     var body: some Scene {
         WindowGroup {
             HomeView()
@@ -110,20 +101,22 @@ struct TheApp: App {
 }
 ```
 
-After that, you can use @AtomState wrapper to get access to atom value in your SwiftUI view. All the views in the scope 
-that use AtomState will automatically refresh when the atom is changed:
+Scopes can be nested — a child scope shadows the parent for any atoms it defines.
+
+## Usage
+
+### Reading and writing atoms
+
+Use `@AtomState` to bind an atom to a view. The view automatically refreshes when the atom's value changes:
 
 ```swift
 struct HomeView: View {
-    
-    @AtomState(\AtomObjects.isEditing)
+    @AtomState(\.isEditing)
     var isEditing
 
     var body: some View {
-        Button {
+        Button("Edit") {
             isEditing.toggle()
-        } label: {
-            Text("Edit")
         }
         .popover(isPresented: $isEditing) {
             EditorView()
@@ -132,91 +125,111 @@ struct HomeView: View {
 }
 ```
 
-## Actions
+### Custom value setters
 
-If you have recurring logic applied to the atoms inside a specific root, you can wrap it inside the AtomObjectsAction 
-object and reuse it in the app. 
-
-For example, we have a simple counter atom:
+You can provide a custom setter for in-place mutations:
 
 ```swift
-    struct CounterAtomKey: AtomObjectKey {
-        static var defaultValue: Int = 0
+@AtomState(
+    \.counter,
+    set: { newValue, atom in
+        atom.value = newValue < atom.value ? newValue - 1 : newValue + 1
     }
-    
-    class AtomObjects: AtomRoot {
-        var counter: AtomObject<Int> {
-            get { return self[CounterAtomKey.self] }
-            set { self[CounterAtomKey.self] = newValue }
-        }
-    }
+)
+var counter
 ```
 
-What if you want to reuse configurable increment action in various views? It is possible by implementing the action as in
-the code example below. The action in the example has a configurable increment value. 
+## Actions
+
+For recurring logic that mutates atoms, define an `AtomObjectsAction`. Actions are async and receive the root as a parameter:
 
 ```swift
+extension AtomObjects {
     struct IncrementCounter: AtomObjectsAction {
-        
         var value: Int
-        
+
         init(by value: Int) {
             self.value = value
         }
-        
+
         func perform(with root: AtomObjects) async {
-            
-            // Convenience wrapper allowing to access atom value via local variable
-            @AtomValue(root.counter) var counter; 
-            
+            @AtomValue(\.counter, in: root) var counter
             counter += value
         }
     }
+}
 ```
 
-The action from the example above can be stored and cashed inside the consuming view, and called when needed:
+Use `@AtomAction` in a view to invoke the action:
 
 ```swift
-    struct CounterView: View {
-        
-        @AtomState(\AtomObjects.counter)
-        var counter
+struct IncrementCounter: AtomObjectsAction {
     
-        @AtomAction(AtomObjects.IncrementCounter(by: 1))
-        var increment
+    var value: Float
     
-        var body: some View {
+    init(by value: Float) {
+        self.value = value
+    }
+    
+    func perform(with root: AtomObjects) async {
         
-            Button {
-                increment()
-            } label: {
-                Text("Increment counter: \(counter)")
-            }
+        @AtomValue(\.counter, in: root) var counter;
+        
+        counter += value
+    }
+}
+
+struct CounterView: View {
+    @AtomState(\.counter)
+    var counter
+
+    @AtomAction(IncrementCounter(by: 1))
+    var increment
+
+    var body: some View {
+        Button("Increment: \(counter)") {
+            increment()
         }
-    } 
+    }
+}
 ```
 
-The action can also be awaited to run additional jobs after the action is finished, if needed:
+The projected value `$action` returns an async closure, so you can await it:
 
 ```swift
-    struct CounterView: View {
-        
-        @AtomState(\AtomObjects.counter)
-        var counter
-    
-        @AtomAction(AtomObjects.IncrementCounter(by: 1))
-        var increment
-    
-        var body: some View {
-        
-            Button {
-                Task {
-                    await $increment()
-                    // Run additional jobs after
-                }
-            } label: {
-                Text("Increment counter: \(counter)")
-            }
-        }
-    } 
+Button("Increment") {
+    Task {
+        await $increment()
+        // Run follow-up work here
+    }
+}
 ```
+
+## Nested Roots
+
+You can nest `AtomRoot` instances for modular state. Define a key conforming to `AtomRootKey` and register it on the parent:
+
+```swift
+struct SettingsRootKey: AtomRootKey {
+    static var defaultRoot: SettingsRoot = SettingsRoot()
+}
+
+extension AtomObjects {
+    var settings: SettingsRoot {
+        get { self[SettingsRootKey.self] }
+        set { self[SettingsRootKey.self] = newValue }
+    }
+}
+```
+
+## Architecture
+
+- **`@Observable` macro** on `AtomRoot` — handles all change tracking
+- **`@State` in `AtomScope`** — works seamlessly with `@Observable` types
+- **Environment injection** — custom `EnvironmentValues` key (`\.atomRoot`)
+- **No Combine, no `ObservableObject`, no `@Published`**
+- **Swift 6 strict concurrency** — all atoms are `Sendable`
+
+## License
+
+MIT — see [LICENSE](LICENSE) for details.

@@ -6,19 +6,18 @@ import PackageDescription
 let package = Package(
     name: "AtomObjects",
     platforms: [
-        .iOS(.v14),
-        .macOS(.v12),
-        .watchOS(.v7),
-        .tvOS(.v14)
+        .iOS(.v17),
+        .macOS(.v14),
+        .watchOS(.v10),
+        .tvOS(.v17),
     ],
     products: [
         .library(
             name: "AtomObjects",
-            targets: ["AtomObjects"]),
+            targets: ["AtomObjects"])
     ],
     dependencies: [
-        .package(url: "https://github.com/Quick/Quick", from: "4.0.0"),
-        .package(url: "https://github.com/Quick/Nimble", from: "9.0.0"),
+        .package(url: "https://github.com/apple/swift-testing", from: "0.11.0")
     ],
     targets: [
         .target(
@@ -29,7 +28,7 @@ let package = Package(
             ]),
         .testTarget(
             name: "AtomObjectsTests",
-            dependencies: ["AtomObjects", "Quick", "Nimble"]),
+            dependencies: ["AtomObjects", .product(name: "Testing", package: "swift-testing")]),
     ],
     swiftLanguageModes: [.v6]
 )

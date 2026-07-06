@@ -1,71 +1,61 @@
-/*
- 
-AtomObjects
- 
-Copyright (c) 2023 Natan Zalkin
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
- 
-*/
-
+// Copyright (c) 2023 Natan Zalkin — MIT License
 
 import Foundation
-import Combine
+import SwiftUI
+
+/// Environment key for AtomRoot instances.
+private struct AtomRootEnvironmentKey: EnvironmentKey {
+    static var defaultValue: AtomRoot? = nil
+}
+
+extension EnvironmentValues {
+    /// The current atom root in the environment.
+    public var atomRoot: AtomRoot? {
+        get { self[AtomRootEnvironmentKey.self] }
+        set { self[AtomRootEnvironmentKey.self] = newValue }
+    }
+}
 
 public struct AtomStorage {
-    
+
     private var storage = [ObjectIdentifier: AnyObject]()
 
-    public subscript<Key, Atom>(key: Key.Type) -> Atom? where Key: AtomObjectKey, Atom: AtomObject, Atom.Value == Key.Value {
+    public subscript<Key, Atom>(key: Key.Type) -> Atom?
+    where Key: AtomObjectKey, Atom: AtomObject, Atom.Value == Key.Value {
         get { storage[ObjectIdentifier(Key.self)] as? Atom }
         set { storage[ObjectIdentifier(Key.self)] = newValue }
     }
-    
+
     public init() {}
 }
 
 public struct RootStorage {
-    
-    private var storage = [ObjectIdentifier: any AtomRoot]()
+
+    private var storage = [ObjectIdentifier: AnyObject]()
 
     public subscript<Key>(key: Key.Type) -> Key.Root? where Key: AtomRootKey {
         get { storage[ObjectIdentifier(Key.self)] as? Key.Root }
         set { storage[ObjectIdentifier(Key.self)] = newValue }
     }
-    
+
     public init() {}
 }
 
+@Observable
+open class AtomRoot {
 
-public protocol AtomRoot: ObservableObject where ObjectWillChangePublisher == ObservableObjectPublisher {
-    
-    var parent: (any AtomRoot)? { get set }
-    
-    var atoms: AtomStorage { get set }
-    var roots: RootStorage { get set }
-    
-    var version: AnyHashable { get set }
-}
+    public var parent: AtomRoot?
 
-public extension AtomRoot {
-    
-    subscript<Key, Atom>(key: Key.Type) -> Atom where Key: AtomObjectKey, Atom: AtomObject, Atom.Value == Key.Value {
+    public var atoms: AtomStorage
+    public var roots: RootStorage
+
+    public init() {
+        atoms = AtomStorage()
+        roots = RootStorage()
+    }
+
+    open subscript<Key, Atom>(key: Key.Type) -> Atom
+    where Key: AtomObjectKey, Atom: AtomObject, Atom.Value == Key.Value {
         get {
             if let atom: Atom = atoms[Key.self] {
                 return atom
@@ -76,12 +66,11 @@ public extension AtomRoot {
             }
         }
         set {
-            upgrade()
             atoms[Key.self] = newValue
         }
     }
-    
-    subscript<Key>(key: Key.Type) -> Key.Root where Key: AtomRootKey {
+
+    open subscript<Key>(key: Key.Type) -> Key.Root where Key: AtomRootKey {
         get {
             if let root = roots[Key.self] {
                 return root
@@ -93,15 +82,8 @@ public extension AtomRoot {
             }
         }
         set {
-            upgrade()
             roots[Key.self] = newValue
             newValue.parent = self
         }
-    }
-    
-    func upgrade() {
-        objectWillChange.send()
-        version = UUID()
-        parent?.upgrade()
     }
 }

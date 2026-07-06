@@ -2,24 +2,23 @@
 //  Created by Natan Zalkin on 12/01/2023.
 //  Copyright © 2023 Natan Zalkin. All rights reserved.
 //
-    
 
-import SwiftUI
 import AtomObjects
+import SwiftUI
 
 struct ContentView: View {
-    
+
     @AtomState(\AtomObjects.counter)
     var counter
-    
+
     var body: some View {
         VStack {
             Text("Counter: \(Int(counter))")
             Controls()
-            
+
             SecondaryView()
                 .atomScope(root: AtomObjects())
-            
+
             TertiaryView()
                 .atomScope(root: AtomObjects())
         }
@@ -28,19 +27,19 @@ struct ContentView: View {
 }
 
 struct Controls: View {
-    
+
     @AtomState(\AtomObjects.counter)
     var counter
-    
+
     @AtomAction(AtomObjects.IncrementCounter(by: 1))
     var increment
-    
+
     @AtomAction(AtomObjects.IncrementCounter(by: -1))
     var decrement
-    
+
     @State
     var isEditing = false
-    
+
     var body: some View {
         HStack {
             Button {
@@ -50,13 +49,16 @@ struct Controls: View {
                     .font(.title)
             }
             .accessibilityIdentifier("decrement")
-            
-            Slider(value: $counter, in: 0...10, onEditingChanged: { editing in
-                isEditing = editing
-            }) {
+
+            Slider(
+                value: $counter, in: 0...10,
+                onEditingChanged: { editing in
+                    isEditing = editing
+                }
+            ) {
                 Text("Value")
             }
-            
+
             Button {
                 Task {
                     await $increment()
@@ -71,10 +73,10 @@ struct Controls: View {
 }
 
 struct SecondaryView: View {
-    
+
     @AtomState(\AtomObjects.counter)
     var counter: Float
-    
+
     var body: some View {
         VStack {
             Text("Secondary counter: \(Int(counter))")
@@ -84,15 +86,20 @@ struct SecondaryView: View {
 }
 
 struct TertiaryView: View {
-    
-    @AtomState(\AtomObjects.counter, set: { newValue, atom in
-        atom.value = newValue < atom.value ? newValue - 1 : newValue + 1
-    })
+
+    @AtomState(
+        \AtomObjects.counter,
+        set: { newValue, atom in
+            atom.value = newValue < atom.value ? newValue - 1 : newValue + 1
+        })
     var counter
-    
-    @EnvironmentObject
-    var root: AtomObjects
-    
+
+    @Environment(\.atomRoot) private var environmentRoot
+
+    private var root: AtomObjects? {
+        environmentRoot as? AtomObjects
+    }
+
     var body: some View {
         VStack {
             HStack {
@@ -103,13 +110,13 @@ struct TertiaryView: View {
                         .font(.title)
                 }
                 .accessibilityIdentifier("tertiaryDecrement")
-                
+
                 Spacer()
-                
+
                 Text("Tertiary counter: \(Int(counter))")
-                
+
                 Spacer()
-                
+
                 Button {
                     counter += 1
                 } label: {
@@ -118,9 +125,9 @@ struct TertiaryView: View {
                 }
                 .accessibilityIdentifier("tertiaryIncrement")
             }
-            
+
             Button {
-                root.counter = GenericAtom(value: 5)
+                root?.counter = GenericAtom(value: 5)
             } label: {
                 Text("Rewrite atom")
             }
@@ -133,11 +140,10 @@ struct TertiaryView: View {
 
 struct ContentView_Previews: PreviewProvider {
     static var root = AtomObjects()
-    
+
     static var previews: some View {
         AtomScope(root: root) {
             ContentView()
         }
     }
 }
-

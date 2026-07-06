@@ -23,9 +23,13 @@ let package = Package(
     targets: [
         .target(
             name: "AtomObjects",
-            dependencies: []),
+            dependencies: [],
+            swiftSettings: [
+                .defaultIsolation(MainActor.self)
+            ]),
         .testTarget(
             name: "AtomObjectsTests",
             dependencies: ["AtomObjects", "Quick", "Nimble"]),
-    ]
+    ],
+    swiftLanguageModes: [.v6]
 )

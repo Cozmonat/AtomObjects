@@ -29,7 +29,7 @@ import SwiftUI
 import Combine
 
 /// A property wrapper type that can read and write a value of a specific atom and refreshes views when the value is changed.
-@propertyWrapper public struct AtomState<Root, Atom, Value>: @MainActor DynamicProperty, Equatable
+@propertyWrapper public struct AtomState<Root, Atom, Value>: DynamicProperty, Equatable
     where Root: AtomRoot, Atom: AtomObject, Atom.Value == Value {
     
     public static func == (lhs: Self, rhs: Self) -> Bool {
@@ -43,13 +43,13 @@ import Combine
     
     @StateObject private var observer = Observer()
     
-    @MainActor public var wrappedValue: Value {
+    public var wrappedValue: Value {
         get { observer.value } nonmutating set {
             setter?(newValue, observer.atom) ?? observer.atom.setThenNotEqual(newValue)
         }
     }
-    
-    @MainActor public var projectedValue: Binding<Value> {
+
+    public var projectedValue: Binding<Value> {
         Binding { observer.value } set: { newValue in
             setter?(newValue, observer.atom) ?? observer.atom.setThenNotEqual(newValue)
         }
@@ -61,7 +61,7 @@ import Combine
     ///   - keyPath: A key path to a specific atom in the root.
     ///   - root: An atom root type.
     ///   - set: An in-place atom value setter.
-    @MainActor public init(
+    public init(
         _ keyPath: ReferenceWritableKeyPath<Root, Atom>,
         root: Root.Type = Root.self,
         set: ((_ newValue: Value, _ atomObject: Atom) -> Void)? = nil
@@ -69,8 +69,8 @@ import Combine
         self.keyPath = keyPath
         self.setter = set
     }
-    
-    @MainActor public mutating func update() {
+
+    public mutating func update() {
         observer.resolve(keyPath, root: root)
     }
 }

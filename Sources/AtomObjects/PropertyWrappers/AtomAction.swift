@@ -29,34 +29,34 @@ import SwiftUI
 
 /// A property wrapper type that exposes the invocation of an action of the specified type with the actual root.
 /// The returned closure must be invoked on the main actor.
-@propertyWrapper public struct AtomAction<Action>: @MainActor DynamicProperty, Equatable
+@propertyWrapper public struct AtomAction<Action>: DynamicProperty, Equatable
     where Action: AtomObjectsAction {
-    
+
     public static func == (lhs: Self, rhs: Self) -> Bool {
         true
     }
-    
+
     public typealias Root = Action.Root
-    
+
     private var action: () -> Action
-    
+
     @EnvironmentObject private var root: Root
-    
-    @MainActor public var wrappedValue: (() -> Void) {
+
+    public var wrappedValue: (() -> Void) {
         return {
-            Task { @MainActor in
+            Task {
                 await action().perform(with: root)
             }
         }
     }
-    
-    @MainActor public var projectedValue: (@MainActor () async -> Void) {
-        return { @MainActor in
+
+    public var projectedValue: (() async -> Void) {
+        return {
             await action().perform(with: root)
         }
     }
-    
-    @MainActor public init(_ action: @autoclosure @escaping () -> Action) {
+
+    public init(_ action: @autoclosure @escaping () -> Action) {
         self.action = action
     }
 }

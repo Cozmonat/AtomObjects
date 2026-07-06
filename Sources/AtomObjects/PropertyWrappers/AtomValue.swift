@@ -26,7 +26,7 @@ SOFTWARE.
     
 
 /// A convenience property wrapper type that can read and write a value of a specific atom.
-@propertyWrapper public struct AtomValue<Atom>: @MainActor Equatable
+@propertyWrapper public struct AtomValue<Atom>: Equatable
     where Atom: AtomObject {
     
     public static func == (lhs: AtomValue<Atom>, rhs: AtomValue<Atom>) -> Bool {

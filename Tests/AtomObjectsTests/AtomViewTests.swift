@@ -224,9 +224,10 @@ struct AtomStateViewTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 42)
 
-        let hosting = NSHostingController(rootView: AtomScope(root: root) {
-            CounterStateView()
-        })
+        let hosting = NSHostingController(
+            rootView: AtomScope(root: root) {
+                CounterStateView()
+            })
 
         // hosting controller created successfully
         hosting.viewDidLoad()
@@ -238,9 +239,10 @@ struct AtomStateViewTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 0)
 
-        _ = NSHostingController(rootView: AtomScope(root: root) {
-            CounterStateView()
-        })
+        _ = NSHostingController(
+            rootView: AtomScope(root: root) {
+                CounterStateView()
+            })
 
         root.viewCounter.value = 7
         #expect(root.viewCounter.value == 7)
@@ -251,9 +253,10 @@ struct AtomStateViewTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 0)
 
-        _ = NSHostingController(rootView: AtomScope(root: root) {
-            CustomSetterView()
-        })
+        _ = NSHostingController(
+            rootView: AtomScope(root: root) {
+                CustomSetterView()
+            })
 
         #expect(root.viewCounter.value == 0)
     }
@@ -271,12 +274,13 @@ struct AtomStateViewTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 0)
 
-        _ = NSHostingController(rootView: AtomScope(root: root) {
-            VStack {
-                CounterStateView()
-                CounterStateView()
-            }
-        })
+        _ = NSHostingController(
+            rootView: AtomScope(root: root) {
+                VStack {
+                    CounterStateView()
+                    CounterStateView()
+                }
+            })
 
         root.viewCounter.value = 5
         #expect(root.viewCounter.value == 5)
@@ -292,9 +296,10 @@ struct AtomActionViewTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 0)
 
-        _ = NSHostingController(rootView: AtomScope(root: root) {
-            ActionView()
-        })
+        _ = NSHostingController(
+            rootView: AtomScope(root: root) {
+                ActionView()
+            })
 
         #expect(root.viewCounter.value == 0)
     }
@@ -316,9 +321,10 @@ struct AtomActionViewTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 0)
 
-        _ = NSHostingController(rootView: AtomScope(root: root) {
-            AsyncActionView()
-        })
+        _ = NSHostingController(
+            rootView: AtomScope(root: root) {
+                AsyncActionView()
+            })
 
         #expect(root.viewCounter.value == 0)
     }
@@ -328,9 +334,10 @@ struct AtomActionViewTests {
         let root = AtomObjects()
         root.viewActionLog = GenericAtom<[String]>(value: [])
 
-        _ = NSHostingController(rootView: AtomScope(root: root) {
-            LogActionView()
-        })
+        _ = NSHostingController(
+            rootView: AtomScope(root: root) {
+                LogActionView()
+            })
 
         #expect(root.viewActionLog.value.isEmpty)
     }
@@ -345,9 +352,10 @@ struct AtomScopeViewTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 99)
 
-        let hosting = NSHostingController(rootView: AtomScope(root: root) {
-            StructScopeView()
-        })
+        let hosting = NSHostingController(
+            rootView: AtomScope(root: root) {
+                StructScopeView()
+            })
 
         hosting.viewDidLoad()
         // hosting controller created successfully
@@ -359,8 +367,9 @@ struct AtomScopeViewTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 77)
 
-        let hosting = NSHostingController(rootView: ModifierScopeView()
-            .atomScope(root: root))
+        let hosting = NSHostingController(
+            rootView: ModifierScopeView()
+                .atomScope(root: root))
 
         hosting.viewDidLoad()
         // hosting controller created successfully
@@ -372,9 +381,10 @@ struct AtomScopeViewTests {
         let parentRoot = AtomObjects()
         parentRoot.viewCounter = GenericAtom<Int>(value: 10)
 
-        let hosting = NSHostingController(rootView: AtomScope(root: parentRoot) {
-            NestedRootView()
-        })
+        let hosting = NSHostingController(
+            rootView: AtomScope(root: parentRoot) {
+                NestedRootView()
+            })
 
         hosting.viewDidLoad()
         // hosting controller created successfully
@@ -389,14 +399,15 @@ struct AtomScopeViewTests {
         parentRoot.viewCounter = GenericAtom<Int>(value: 100)
         childRoot.viewCounter = GenericAtom<Int>(value: 1)
 
-        _ = NSHostingController(rootView: AtomScope(root: parentRoot) {
-            VStack {
-                CounterStateView()
-                AtomScope(root: childRoot) {
+        _ = NSHostingController(
+            rootView: AtomScope(root: parentRoot) {
+                VStack {
                     CounterStateView()
+                    AtomScope(root: childRoot) {
+                        CounterStateView()
+                    }
                 }
-            }
-        })
+            })
 
         #expect(parentRoot.viewCounter.value == 100)
         #expect(childRoot.viewCounter.value == 1)
@@ -420,12 +431,14 @@ struct AtomScopeViewTests {
         root1.viewCounter = GenericAtom<Int>(value: 1)
         root2.viewCounter = GenericAtom<Int>(value: 2)
 
-        let structHosting = NSHostingController(rootView: AtomScope(root: root1) {
-            StructScopeView()
-        })
+        let structHosting = NSHostingController(
+            rootView: AtomScope(root: root1) {
+                StructScopeView()
+            })
 
-        let modifierHosting = NSHostingController(rootView: ModifierScopeView()
-            .atomScope(root: root2))
+        let modifierHosting = NSHostingController(
+            rootView: ModifierScopeView()
+                .atomScope(root: root2))
 
         structHosting.viewDidLoad()
         modifierHosting.viewDidLoad()
@@ -487,9 +500,10 @@ struct ViewIntegrationTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 0)
 
-        let hosting = NSHostingController(rootView: AtomScope(root: root) {
-            CounterStateView()
-        })
+        let hosting = NSHostingController(
+            rootView: AtomScope(root: root) {
+                CounterStateView()
+            })
 
         hosting.viewDidLoad()
 
@@ -510,12 +524,13 @@ struct ViewIntegrationTests {
         root1.viewCounter = GenericAtom<Int>(value: 1)
         root2.viewCounter = GenericAtom<Int>(value: 2)
 
-        _ = NSHostingController(rootView: VStack {
-            CounterStateView()
-                .atomScope(root: root1)
-            CounterStateView()
-                .atomScope(root: root2)
-        })
+        _ = NSHostingController(
+            rootView: VStack {
+                CounterStateView()
+                    .atomScope(root: root1)
+                CounterStateView()
+                    .atomScope(root: root2)
+            })
 
         #expect(root1.viewCounter.value == 1)
         #expect(root2.viewCounter.value == 2)
@@ -563,9 +578,10 @@ struct ViewIntegrationTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 0)
 
-        _ = NSHostingController(rootView: AtomScope(root: root) {
-            ActionView()
-        })
+        _ = NSHostingController(
+            rootView: AtomScope(root: root) {
+                ActionView()
+            })
 
         // Simulate what happens when the action is triggered
         await AtomObjects.IncrementAction(amount: 10).perform(with: root)
@@ -577,9 +593,10 @@ struct ViewIntegrationTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 0)
 
-        _ = NSHostingController(rootView: AtomScope(root: root) {
-            AsyncActionView()
-        })
+        _ = NSHostingController(
+            rootView: AtomScope(root: root) {
+                AsyncActionView()
+            })
 
         // Simulate async action trigger
         await AtomObjects.IncrementAction(amount: 5).perform(with: root)
@@ -592,12 +609,13 @@ struct ViewIntegrationTests {
         root.viewCounter = GenericAtom<Int>(value: 0)
         root.viewName = GenericAtom<String>(value: "root")
 
-        _ = NSHostingController(rootView: AtomScope(root: root) {
-            VStack {
-                CounterStateView()
-                CustomSetterView()
-            }
-        })
+        _ = NSHostingController(
+            rootView: AtomScope(root: root) {
+                VStack {
+                    CounterStateView()
+                    CustomSetterView()
+                }
+            })
 
         #expect(root.viewCounter.value == 0)
         #expect(root.viewName.value == "root")

@@ -2,17 +2,41 @@
 
 import SwiftUI
 
-/// A property wrapper type that exposes the invocation of an action of the specified type with the actual root.
-/// The returned closure must be invoked on the main actor.
+/// A property wrapper that exposes an ``AtomObjectsAction`` as a callable closure in SwiftUI views.
+///
+/// Provides two access patterns:
+/// - **`wrappedValue`** (`action()`): fire-and-forget `() -> Void` closure. Spawns a `Task`
+///   with `@MainActor` isolation. Errors trigger `assertionFailure` in debug builds.
+///   Use this for simple button actions where error handling is not needed.
+/// - **`projectedValue`** (`$action()`): `async throws` closure for explicit error handling.
+///   Use this when you need to `await` completion or catch errors.
+///
+/// The action instance is stored once at initialization (not recreated per invocation).
+/// `Equatable` always returns `true` — action wrappers are compared as structurally identical
+/// to avoid unnecessary view re-evaluations.
+///
+/// ```swift
+/// @AtomAction(MyActions.SubmitForm())
+/// var submit
+///
+/// var body: some View {
+///     Button("Submit") { submit() }           // fire-and-forget
+///     Button("Submit (safe)") {
+///         Task { try await $submit() }         // with error handling
+///     }
+/// }
+/// ```
 @propertyWrapper public struct AtomAction<Action>: DynamicProperty, Equatable
 where Action: AtomObjectsAction {
 
+    /// Always returns `true` — action wrappers are structurally identical for SwiftUI diffing.
     public static func == (lhs: Self, rhs: Self) -> Bool {
         true
     }
 
     public typealias Root = Action.Root
 
+    /// The stored action instance, created once at initialization.
     private var action: Action
 
     @Environment(\.atomRoot) private var environmentRoot
@@ -21,6 +45,8 @@ where Action: AtomObjectsAction {
         environmentRoot as? Root
     }
 
+    /// Fire-and-forget closure. Spawns a `Task { @MainActor in ... }` and catches errors
+    /// via `assertionFailure` in debug builds.
     public var wrappedValue: (() -> Void) {
         return {
             guard let root = self.root else { return }
@@ -34,6 +60,7 @@ where Action: AtomObjectsAction {
         }
     }
 
+    /// Async throws closure for explicit error handling and awaiting.
     public var projectedValue: (() async throws -> Void) {
         return {
             guard let root = self.root else { return }

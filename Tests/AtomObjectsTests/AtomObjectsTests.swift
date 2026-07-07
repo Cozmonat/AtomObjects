@@ -24,7 +24,7 @@ private struct ScoreKey: AtomObjectKey {
 }
 
 private struct ChildRootKey: AtomRootKey {
-    static var defaultRoot: AtomObjects = AtomObjects()
+    static var defaultRoot: AtomObjects { AtomObjects() }
 }
 
 // ── AtomObjects extensions for AtomValue key paths ──

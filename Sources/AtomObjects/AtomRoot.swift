@@ -94,6 +94,10 @@ open class AtomRoot {
                 return root
             } else {
                 let root = Key.defaultRoot
+                assert(
+                    root.parent == nil,
+                    "defaultRoot for \(Key.self) returned an instance already owned by another root — make defaultRoot a computed property"
+                )
                 roots[Key.self] = root
                 root.parent = self
                 return root

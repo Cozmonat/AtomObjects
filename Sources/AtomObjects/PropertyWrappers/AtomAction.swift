@@ -1,12 +1,16 @@
 // Copyright (c) 2023 Natan Zalkin — MIT License
 
 import SwiftUI
+import os
+
+private let actionLogger = Logger(subsystem: "AtomObjects", category: "AtomAction")
 
 /// A property wrapper that exposes an ``AtomObjectsAction`` as a callable closure in SwiftUI views.
 ///
 /// Provides two access patterns:
 /// - **`wrappedValue`** (`action()`): fire-and-forget `() -> Void` closure. Spawns a `Task`
-///   with `@MainActor` isolation. Errors trigger `assertionFailure` in debug builds.
+///   with `@MainActor` isolation. Errors are logged via `os.Logger` and trigger
+///   `assertionFailure` in debug builds; `CancellationError` is ignored as a normal outcome.
 ///   Use this for simple button actions where error handling is not needed.
 /// - **`projectedValue`** (`$action()`): `async throws` closure for explicit error handling.
 ///   Use this when you need to `await` completion or catch errors.
@@ -45,15 +49,19 @@ where Action: AtomObjectsAction {
         environmentRoot as? Root
     }
 
-    /// Fire-and-forget closure. Spawns a `Task { @MainActor in ... }` and catches errors
-    /// via `assertionFailure` in debug builds.
+    /// Fire-and-forget closure. Spawns a `Task { @MainActor in ... }`, logs errors
+    /// via `os.Logger`, and raises `assertionFailure` in debug builds.
+    /// `CancellationError` is treated as a normal outcome, not a failure.
     public var wrappedValue: (() -> Void) {
         return {
             guard let root = self.root else { return }
             Task { @MainActor in
                 do {
                     try await self.action.perform(with: root)
+                } catch is CancellationError {
+                    // Cancellation is a normal outcome, not a failure.
                 } catch {
+                    actionLogger.error("\(String(describing: Action.self)) failed: \(error)")
                     assertionFailure("AtomAction failed: \(error)")
                 }
             }

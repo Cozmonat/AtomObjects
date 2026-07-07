@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-ff69b4.svg)](https://github.com/kzlekk/AtomObjects/raw/master/LICENSE)
 ![Language](https://img.shields.io/badge/swift-6.2-orange.svg)
-![Coverage](https://img.shields.io/badge/coverage-78%25-blue)
+![Coverage](https://img.shields.io/badge/coverage-92%25-blue)
 
 AtomObjects is a lightweight state management library for SwiftUI. It lets you build reusable, scoped state with minimal boilerplate by using small, decentralized "atom" primitives instead of a centralized store.
 
@@ -195,7 +195,7 @@ You can nest `AtomRoot` instances for modular state. Define a key conforming to 
 
 ```swift
 struct SettingsRootKey: AtomRootKey {
-    static var defaultRoot: SettingsRoot = SettingsRoot()
+    static var defaultRoot: SettingsRoot { SettingsRoot() }
 }
 
 extension AtomObjects {

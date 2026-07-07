@@ -8,7 +8,11 @@
 ///
 /// ```swift
 /// struct ChildRootKey: AtomRootKey {
-///     static var defaultRoot: AtomObjects = AtomObjects()
+///     // Computed, not stored: each parent root gets its own child on
+///     // first access (cached in that parent's RootStorage). A stored
+///     // static would create one shared instance across ALL parents,
+///     // whose `parent` reference gets reassigned on every access.
+///     static var defaultRoot: AtomObjects { AtomObjects() }
 /// }
 ///
 /// let child = root[ChildRootKey.self] as AtomObjects

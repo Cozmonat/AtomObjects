@@ -21,7 +21,7 @@ private struct ViewActionLogKey: AtomObjectKey {
 }
 
 private struct ChildViewRootKey: AtomRootKey {
-    static var defaultRoot: AtomObjects = AtomObjects()
+    static var defaultRoot: AtomObjects { AtomObjects() }
 }
 
 // ── AtomObjects extensions ──
@@ -213,6 +213,134 @@ private struct LogActionView: View {
     }
 }
 
+// ── Error-handling test helpers ──
+
+private struct TestActionError: Error {}
+
+/// Throws a regular error after recording that it started.
+private struct ThrowingAction: AtomObjectsAction {
+    func perform(with root: AtomObjects) async throws {
+        @AtomValue(\.viewActionLog, in: root) var log
+        log.append("throwing_started")
+        throw TestActionError()
+    }
+}
+
+/// Throws CancellationError after recording that it started.
+private struct CancellingAction: AtomObjectsAction {
+    func perform(with root: AtomObjects) async throws {
+        @AtomValue(\.viewActionLog, in: root) var log
+        log.append("cancel_started")
+        throw CancellationError()
+    }
+}
+
+/// Records whether perform() was actually invoked, without touching any root state.
+@MainActor
+private final class PerformFlag {
+    var performed = false
+}
+
+private struct FlaggingAction: AtomObjectsAction {
+    let flag: PerformFlag
+
+    func perform(with root: AtomObjects) async throws {
+        flag.performed = true
+    }
+}
+
+/// Captures the closures produced by an @AtomAction wrapper during body evaluation,
+/// so tests can invoke them exactly as a Button action would.
+@MainActor
+private final class ActionClosureBox {
+    var fire: (() -> Void)?
+    var fireAsync: (() async throws -> Void)?
+}
+
+/// A view that hands its @AtomAction closures to the test through a box.
+/// Capturing them during body evaluation mirrors what a Button label closure sees.
+private struct ActionProbeView<Action>: View
+where Action: AtomObjectsAction, Action.Root == AtomObjects {
+
+    @AtomAction<Action> private var action: () -> Void
+
+    private let box: ActionClosureBox
+
+    init(action: Action, box: ActionClosureBox) {
+        self._action = AtomAction(action)
+        self.box = box
+    }
+
+    var body: some View {
+        box.fire = action
+        box.fireAsync = $action
+        return Color.clear
+    }
+}
+
+/// Captures the accessors produced by an @AtomState wrapper during body evaluation,
+/// so tests can read and write through the wrapper exactly as view code would.
+@MainActor
+private final class StateClosureBox {
+    var read: (() -> Int)?
+    var write: ((Int) -> Void)?
+    var binding: Binding<Int>?
+}
+
+/// A view that hands its @AtomState accessors to the test through a box.
+private struct StateProbeView: View {
+
+    @AtomState(\AtomObjects.viewCounter)
+    private var counter: Int
+
+    private let box: StateClosureBox
+    private let captureBinding: Bool
+
+    init(
+        state: AtomState<AtomObjects, GenericAtom<Int>, Int> = AtomState(\.viewCounter),
+        captureBinding: Bool = true,
+        box: StateClosureBox
+    ) {
+        self._counter = state
+        self.captureBinding = captureBinding
+        self.box = box
+    }
+
+    var body: some View {
+        box.read = { counter }
+        box.write = { counter = $0 }
+        // Creating the projected Binding eagerly invokes its getter, which
+        // fatalErrors without a root — so no-root tests must opt out.
+        if captureBinding {
+            box.binding = $counter
+        }
+        return Color.clear
+    }
+}
+
+/// Hosts a view in a window and forces a layout pass so SwiftUI evaluates body.
+@MainActor
+private func renderInWindow<Content: View>(_ view: Content) -> NSWindow {
+    let hosting = NSHostingController(rootView: view)
+    let window = NSWindow(contentViewController: hosting)
+    window.orderFrontRegardless()
+    hosting.view.layoutSubtreeIfNeeded()
+    return window
+}
+
+/// Polls until the condition holds or the timeout elapses, yielding the main
+/// actor so fire-and-forget action tasks can run.
+private func waitUntil(
+    timeout: Duration = .seconds(2),
+    _ condition: () -> Bool
+) async throws {
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: timeout)
+    while !condition(), clock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+}
+
 // ── Tests ──
 
 @MainActor
@@ -287,6 +415,131 @@ struct AtomStateViewTests {
     }
 }
 
+// Note: the fatalError branches of wrappedValue/projectedValue getters (missing root)
+// cannot be covered — they would crash the test run by design. These tests cover the
+// reachable paths: get, set, custom setter, Binding get/set, and the no-root setter guards.
+@MainActor
+@Suite("AtomState Live View Tests")
+struct AtomStateLiveViewTests {
+
+    private static let clampingState = AtomState(
+        \AtomObjects.viewCounter,
+        set: { newValue, atom in
+            atom.value = max(newValue, 0)  // Clamp to zero
+        })
+
+    @Test("wrappedValue getter reads atom value through live view")
+    func wrappedValueGetter() async throws {
+        let root = AtomObjects()
+        root.viewCounter = GenericAtom<Int>(value: 42)
+        let box = StateClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: root) {
+                StateProbeView(box: box)
+            })
+        defer { window.close() }
+
+        let read = try #require(box.read, "body should have captured the getter")
+        #expect(read() == 42)
+    }
+
+    @Test("wrappedValue setter writes atom value through live view")
+    func wrappedValueSetter() async throws {
+        let root = AtomObjects()
+        root.viewCounter = GenericAtom<Int>(value: 0)
+        let box = StateClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: root) {
+                StateProbeView(box: box)
+            })
+        defer { window.close() }
+
+        let write = try #require(box.write, "body should have captured the setter")
+        write(7)
+        #expect(root.viewCounter.value == 7)
+
+        // Equal value exercises the setIfNotEqual skip branch.
+        write(7)
+        #expect(root.viewCounter.value == 7)
+    }
+
+    @Test("wrappedValue setter dispatches to custom setter")
+    func wrappedValueCustomSetter() async throws {
+        let root = AtomObjects()
+        root.viewCounter = GenericAtom<Int>(value: 0)
+        let box = StateClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: root) {
+                StateProbeView(state: Self.clampingState, box: box)
+            })
+        defer { window.close() }
+
+        let write = try #require(box.write, "body should have captured the setter")
+        write(-5)
+        #expect(root.viewCounter.value == 0, "custom setter should clamp negative values")
+
+        write(3)
+        #expect(root.viewCounter.value == 3)
+    }
+
+    @Test("projected Binding reads and writes through live view")
+    func bindingReadsAndWrites() async throws {
+        let root = AtomObjects()
+        root.viewCounter = GenericAtom<Int>(value: 1)
+        let box = StateClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: root) {
+                StateProbeView(box: box)
+            })
+        defer { window.close() }
+
+        let binding = try #require(box.binding, "body should have captured the binding")
+        #expect(binding.wrappedValue == 1)
+
+        binding.wrappedValue = 9
+        #expect(root.viewCounter.value == 9)
+    }
+
+    @Test("projected Binding dispatches to custom setter")
+    func bindingCustomSetter() async throws {
+        let root = AtomObjects()
+        root.viewCounter = GenericAtom<Int>(value: 5)
+        let box = StateClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: root) {
+                StateProbeView(state: Self.clampingState, box: box)
+            })
+        defer { window.close() }
+
+        let binding = try #require(box.binding, "body should have captured the binding")
+        binding.wrappedValue = -3
+        #expect(root.viewCounter.value == 0, "custom setter should clamp negative values")
+    }
+
+    @Test("wrappedValue setter is a no-op without a root in the environment")
+    func setterWithoutRoot() async throws {
+        let box = StateClosureBox()
+
+        // No AtomScope — the environment carries no root.
+        // Only the wrappedValue setter can be exercised here: the getters fatalError
+        // without a root, and even creating the projected Binding invokes the getter,
+        // so the Binding set-guard is untestable.
+        let window = renderInWindow(StateProbeView(captureBinding: false, box: box))
+        defer { window.close() }
+
+        let write = try #require(box.write, "body should have captured the setter")
+
+        // Reaching the expectation without crashing proves the guard returned early.
+        write(5)
+        #expect(true)
+    }
+}
+
 @MainActor
 @Suite("AtomAction View Tests")
 struct AtomActionViewTests {
@@ -340,6 +593,95 @@ struct AtomActionViewTests {
             })
 
         #expect(root.viewActionLog.value.isEmpty)
+    }
+}
+
+// Note: the generic-error path of wrappedValue cannot be covered here — it raises
+// assertionFailure, which would crash the debug test run by design. These tests
+// cover the paths around it: success, cancellation, projected throws, missing root.
+@MainActor
+@Suite("AtomAction Error Handling View Tests")
+struct AtomActionErrorViewTests {
+
+    @Test("wrappedValue captured from live view mutates state")
+    func wrappedValueFromLiveView() async throws {
+        let root = AtomObjects()
+        root.viewCounter = GenericAtom<Int>(value: 0)
+        let box = ActionClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: root) {
+                ActionProbeView(action: AtomObjects.IncrementAction(amount: 3), box: box)
+            })
+        defer { window.close() }
+
+        let fire = try #require(box.fire, "body should have captured the action closure")
+        fire()
+
+        try await waitUntil { root.viewCounter.value == 3 }
+        #expect(root.viewCounter.value == 3)
+    }
+
+    @Test("wrappedValue treats CancellationError as a normal outcome")
+    func wrappedValueIgnoresCancellation() async throws {
+        let root = AtomObjects()
+        root.viewActionLog = GenericAtom<[String]>(value: [])
+        let box = ActionClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: root) {
+                ActionProbeView(action: CancellingAction(), box: box)
+            })
+        defer { window.close() }
+
+        let fire = try #require(box.fire, "body should have captured the action closure")
+        // Would crash via assertionFailure if CancellationError were treated as a failure.
+        fire()
+
+        try await waitUntil { root.viewActionLog.value.contains("cancel_started") }
+        #expect(root.viewActionLog.value == ["cancel_started"])
+    }
+
+    @Test("projectedValue captured from live view propagates errors")
+    func projectedValuePropagatesError() async throws {
+        let root = AtomObjects()
+        root.viewActionLog = GenericAtom<[String]>(value: [])
+        let box = ActionClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: root) {
+                ActionProbeView(action: ThrowingAction(), box: box)
+            })
+        defer { window.close() }
+
+        let fireAsync = try #require(box.fireAsync, "body should have captured the async closure")
+
+        var caught: (any Error)?
+        do {
+            try await fireAsync()
+        } catch {
+            caught = error
+        }
+
+        #expect(caught is TestActionError)
+        #expect(root.viewActionLog.value == ["throwing_started"])
+    }
+
+    @Test("wrappedValue is a no-op without a root in the environment")
+    func wrappedValueWithoutRoot() async throws {
+        let flag = PerformFlag()
+        let box = ActionClosureBox()
+
+        // No AtomScope — the environment carries no root.
+        let window = renderInWindow(
+            ActionProbeView(action: FlaggingAction(flag: flag), box: box))
+        defer { window.close() }
+
+        let fire = try #require(box.fire, "body should have captured the action closure")
+        fire()
+
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!flag.performed, "action must not run when no root is present")
     }
 }
 

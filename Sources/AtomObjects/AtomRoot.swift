@@ -16,6 +16,12 @@ extension EnvironmentValues {
     }
 }
 
+/// Type-erased storage for atom instances, keyed by their ``AtomObjectKey`` type.
+///
+/// Uses `ObjectIdentifier(Key.self)` as the dictionary key, which is stable
+/// for the lifetime of the process (type metadata never changes address).
+/// Values are stored as `AnyObject` — this is safe because ``AtomObject``
+/// inherits from `AnyObject`, guaranteeing all atoms are reference types.
 public struct AtomStorage {
 
     private var storage = [ObjectIdentifier: AnyObject]()
@@ -29,6 +35,10 @@ public struct AtomStorage {
     public init() {}
 }
 
+/// Type-erased storage for nested root instances, keyed by their ``AtomRootKey`` type.
+///
+/// Uses the same `ObjectIdentifier(Key.self)` strategy as ``AtomStorage``.
+/// Values are stored as `AnyObject` — safe because ``AtomRoot`` is a class.
 public struct RootStorage {
 
     private var storage = [ObjectIdentifier: AnyObject]()
@@ -41,9 +51,17 @@ public struct RootStorage {
     public init() {}
 }
 
+/// Central state container managing atoms and nested roots.
+///
+/// - Memory management: ``parent`` is `weak` to break retain cycles between
+///   nested roots. The owning parent holds a strong reference to the child
+///   via ``RootStorage``, while the child holds only a `weak` back-reference.
+/// - Thread safety: All public APIs are isolated to `@MainActor` (package default).
 @Observable
 open class AtomRoot {
 
+    /// Weak back-reference to the parent root.
+    /// `weak` to prevent retain cycles: parent → (strong) → child → (weak) → parent.
     public weak var parent: AtomRoot?
 
     public var atoms: AtomStorage

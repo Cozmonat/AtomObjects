@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-ff69b4.svg)](https://github.com/kzlekk/AtomObjects/raw/master/LICENSE)
 ![Language](https://img.shields.io/badge/swift-6.2-orange.svg)
-![Coverage](https://img.shields.io/badge/coverage-85%25-green)
+![Coverage](https://img.shields.io/badge/coverage-42%25-yellow)
 
 AtomObjects is a lightweight state management library for SwiftUI. It lets you build reusable, scoped state with minimal boilerplate by using small, decentralized "atom" primitives instead of a centralized store.
 
@@ -163,22 +163,6 @@ extension AtomObjects {
 Use `@AtomAction` in a view to invoke the action:
 
 ```swift
-struct IncrementCounter: AtomObjectsAction {
-    
-    var value: Float
-    
-    init(by value: Float) {
-        self.value = value
-    }
-    
-    func perform(with root: AtomObjects) async {
-        
-        @AtomValue(\.counter, in: root) var counter;
-        
-        counter += value
-    }
-}
-
 struct CounterView: View {
     @AtomState(\.counter)
     var counter

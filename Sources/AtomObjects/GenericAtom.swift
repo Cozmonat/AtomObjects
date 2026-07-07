@@ -3,7 +3,7 @@
 import SwiftUI
 
 @Observable
-public class GenericAtom<Value>: AtomObject where Value: Sendable {
+public class GenericAtom<Value>: AtomObject {
 
     public var value: Value
 

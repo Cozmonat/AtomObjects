@@ -4,7 +4,7 @@ import Foundation
 
 public protocol AtomObject: AnyObject {
 
-    associatedtype Value
+    associatedtype Value: Sendable
 
     var value: Value { get set }
 
@@ -13,7 +13,9 @@ public protocol AtomObject: AnyObject {
 
 extension AtomObject {
 
-    func setThenNotEqual(_ newValue: Value) {
+    /// Sets the value only if it differs from the current value.
+    /// For non-Equatable values, the assignment always proceeds.
+    func setIfNotEqual(_ newValue: Value) {
         if let value = value as? any Equatable {
             guard !value.isEqual(newValue) else {
                 return

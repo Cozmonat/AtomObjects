@@ -45,7 +45,7 @@ extension AtomObjects {
     struct IncrementAction: AtomObjectsAction {
         var amount: Int
 
-        func perform(with root: AtomObjects) async {
+        func perform(with root: AtomObjects) async throws {
             @AtomValue(\.viewCounter, in: root) var counter
             counter += amount
         }
@@ -54,7 +54,7 @@ extension AtomObjects {
     struct LogAction: AtomObjectsAction {
         var message: String
 
-        func perform(with root: AtomObjects) async {
+        func perform(with root: AtomObjects) async throws {
             @AtomValue(\.viewActionLog, in: root) var log
             log.append(message)
         }
@@ -138,7 +138,7 @@ private struct AsyncActionView: View {
                 .accessibilityIdentifier("asyncCounterLabel")
             Button("Async Add 5") {
                 Task {
-                    await $addFive()
+                    try await $addFive()
                 }
             }
             .accessibilityIdentifier("asyncAddButton")
@@ -542,7 +542,7 @@ struct ViewIntegrationTests {
         root.viewCounter = GenericAtom<Int>(value: 0)
 
         let action = AtomObjects.IncrementAction(amount: 7)
-        await action.perform(with: root)
+        try await action.perform(with: root)
 
         #expect(root.viewCounter.value == 7)
     }
@@ -552,9 +552,9 @@ struct ViewIntegrationTests {
         let root = AtomObjects()
         root.viewCounter = GenericAtom<Int>(value: 0)
 
-        await AtomObjects.IncrementAction(amount: 3).perform(with: root)
-        await AtomObjects.IncrementAction(amount: 5).perform(with: root)
-        await AtomObjects.IncrementAction(amount: -1).perform(with: root)
+        try await AtomObjects.IncrementAction(amount: 3).perform(with: root)
+        try await AtomObjects.IncrementAction(amount: 5).perform(with: root)
+        try await AtomObjects.IncrementAction(amount: -1).perform(with: root)
 
         #expect(root.viewCounter.value == 7)
     }
@@ -564,8 +564,8 @@ struct ViewIntegrationTests {
         let root = AtomObjects()
         root.viewActionLog = GenericAtom<[String]>(value: [])
 
-        await AtomObjects.LogAction(message: "event1").perform(with: root)
-        await AtomObjects.LogAction(message: "event2").perform(with: root)
+        try await AtomObjects.LogAction(message: "event1").perform(with: root)
+        try await AtomObjects.LogAction(message: "event2").perform(with: root)
 
         let log = root.viewActionLog.value
         #expect(log.count == 2)
@@ -584,7 +584,7 @@ struct ViewIntegrationTests {
             })
 
         // Simulate what happens when the action is triggered
-        await AtomObjects.IncrementAction(amount: 10).perform(with: root)
+        try await AtomObjects.IncrementAction(amount: 10).perform(with: root)
         #expect(root.viewCounter.value == 10)
     }
 
@@ -599,7 +599,7 @@ struct ViewIntegrationTests {
             })
 
         // Simulate async action trigger
-        await AtomObjects.IncrementAction(amount: 5).perform(with: root)
+        try await AtomObjects.IncrementAction(amount: 5).perform(with: root)
         #expect(root.viewCounter.value == 5)
     }
 

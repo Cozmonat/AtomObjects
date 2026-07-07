@@ -61,7 +61,7 @@ struct Controls: View {
 
             Button {
                 Task {
-                    await $increment()
+                    try await $increment()
                 }
             } label: {
                 Image(systemName: "plus.circle.fill")

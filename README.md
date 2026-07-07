@@ -152,7 +152,7 @@ extension AtomObjects {
             self.value = value
         }
 
-        func perform(with root: AtomObjects) async {
+        func perform(with root: AtomObjects) async throws {
             @AtomValue(\.counter, in: root) var counter
             counter += value
         }
@@ -178,12 +178,12 @@ struct CounterView: View {
 }
 ```
 
-The projected value `$action` returns an async closure, so you can await it:
+The projected value `$action` returns an async throwing closure, so you can await it:
 
 ```swift
 Button("Increment") {
     Task {
-        await $increment()
+        try await $increment()
         // Run follow-up work here
     }
 }

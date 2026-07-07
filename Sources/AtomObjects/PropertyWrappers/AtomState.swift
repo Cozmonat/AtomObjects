@@ -31,7 +31,7 @@ where Root: AtomRoot, Atom: AtomObject, Atom.Value == Value {
         nonmutating set {
             guard let root = root else { return }
             let atom = root[keyPath: keyPath]
-            setter?(newValue, atom) ?? atom.setThenNotEqual(newValue)
+            setter?(newValue, atom) ?? atom.setIfNotEqual(newValue)
         }
     }
 
@@ -43,8 +43,8 @@ where Root: AtomRoot, Atom: AtomObject, Atom.Value == Value {
             return root[keyPath: self.keyPath].value
         } set: { newValue in
             guard let root = self.root else { return }
-            let atom = root[keyPath: self.keyPath]
-            self.setter?(newValue, atom) ?? atom.setThenNotEqual(newValue)
+            let atom = root[keyPath: keyPath]
+            self.setter?(newValue, atom) ?? atom.setIfNotEqual(newValue)
         }
     }
 

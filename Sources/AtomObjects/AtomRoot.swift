@@ -44,7 +44,7 @@ public struct RootStorage {
 @Observable
 open class AtomRoot {
 
-    public var parent: AtomRoot?
+    public weak var parent: AtomRoot?
 
     public var atoms: AtomStorage
     public var roots: RootStorage

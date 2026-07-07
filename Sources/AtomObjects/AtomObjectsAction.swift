@@ -4,5 +4,5 @@ public protocol AtomObjectsAction {
 
     associatedtype Root: AtomRoot
 
-    func perform(with root: Root) async
+    func perform(with root: Root) async throws
 }

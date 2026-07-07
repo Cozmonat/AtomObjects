@@ -13,7 +13,7 @@ where Action: AtomObjectsAction {
 
     public typealias Root = Action.Root
 
-    private var action: () -> Action
+    private var action: Action
 
     @Environment(\.atomRoot) private var environmentRoot
 
@@ -24,20 +24,24 @@ where Action: AtomObjectsAction {
     public var wrappedValue: (() -> Void) {
         return {
             guard let root = self.root else { return }
-            Task {
-                await action().perform(with: root)
+            Task { @MainActor in
+                do {
+                    try await self.action.perform(with: root)
+                } catch {
+                    assertionFailure("AtomAction failed: \(error)")
+                }
             }
         }
     }
 
-    public var projectedValue: (() async -> Void) {
+    public var projectedValue: (() async throws -> Void) {
         return {
             guard let root = self.root else { return }
-            await action().perform(with: root)
+            try await self.action.perform(with: root)
         }
     }
 
     public init(_ action: @autoclosure @escaping () -> Action) {
-        self.action = action
+        self.action = action()
     }
 }

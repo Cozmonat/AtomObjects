@@ -74,37 +74,37 @@ struct AtomObjectTests {
         #expect(atom.value == 0)
     }
 
-    // ── AtomObject.setThenNotEqual ──
+    // ── AtomObject.setIfNotEqual ──
 
-    @Test("setThenNotEqual prevents duplicate assignment")
-    func setThenNotEqualSameValue() async throws {
+    @Test("setIfNotEqual prevents duplicate assignment")
+    func setIfNotEqualSameValue() async throws {
         let atom = GenericAtom<Int>(value: 10)
-        atom.setThenNotEqual(10)
+        atom.setIfNotEqual(10)
         #expect(atom.value == 10)
     }
 
-    @Test("setThenNotEqual applies different value")
-    func setThenNotEqualDifferentValue() async throws {
+    @Test("setIfNotEqual applies different value")
+    func setIfNotEqualDifferentValue() async throws {
         let atom = GenericAtom<Int>(value: 10)
-        atom.setThenNotEqual(20)
+        atom.setIfNotEqual(20)
         #expect(atom.value == 20)
     }
 
-    @Test("setThenNotEqual with String")
-    func setThenNotEqualString() async throws {
+    @Test("setIfNotEqual with String")
+    func setIfNotEqualString() async throws {
         let atom = GenericAtom<String>(value: "a")
-        atom.setThenNotEqual("a")
+        atom.setIfNotEqual("a")
         #expect(atom.value == "a")
-        atom.setThenNotEqual("b")
+        atom.setIfNotEqual("b")
         #expect(atom.value == "b")
     }
 
-    @Test("setThenNotEqual with Bool")
-    func setThenNotEqualBool() async throws {
+    @Test("setIfNotEqual with Bool")
+    func setIfNotEqualBool() async throws {
         let atom = GenericAtom<Bool>(value: true)
-        atom.setThenNotEqual(true)
+        atom.setIfNotEqual(true)
         #expect(atom.value == true)
-        atom.setThenNotEqual(false)
+        atom.setIfNotEqual(false)
         #expect(atom.value == false)
     }
 

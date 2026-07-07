@@ -28,7 +28,10 @@ let package = Package(
             ]),
         .testTarget(
             name: "AtomObjectsTests",
-            dependencies: ["AtomObjects", .product(name: "Testing", package: "swift-testing")]),
+            dependencies: ["AtomObjects", .product(name: "Testing", package: "swift-testing")],
+            swiftSettings: [
+                .defaultIsolation(MainActor.self)
+            ]),
     ],
     swiftLanguageModes: [.v6]
 )

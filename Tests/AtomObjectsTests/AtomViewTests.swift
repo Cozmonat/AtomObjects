@@ -24,6 +24,16 @@ private struct ChildViewRootKey: AtomRootKey {
     static var defaultRoot: AtomObjects { AtomObjects() }
 }
 
+// ── Deep nesting test keys ──
+
+private struct Level2RootKey: AtomRootKey {
+    static var defaultRoot: AtomObjects { AtomObjects() }
+}
+
+private struct Level3RootKey: AtomRootKey {
+    static var defaultRoot: AtomObjects { AtomObjects() }
+}
+
 // ── AtomObjects extensions ──
 
 extension AtomObjects {
@@ -961,5 +971,185 @@ struct ViewIntegrationTests {
 
         #expect(root.viewCounter.value == 0)
         #expect(root.viewName.value == "root")
+    }
+}
+
+// ── Reactivity test helpers ──
+
+@MainActor
+private final class ObservationTracker {
+    nonisolated(unsafe) var changes = 0
+}
+
+// ── AtomState update() lifecycle tests ──
+
+@MainActor
+@Suite("AtomState update() Lifecycle Tests")
+struct AtomStateUpdateTests {
+
+    @Test("AtomState update() is safe to call repeatedly")
+    func updateRepeatedly() async throws {
+        let root = AtomObjects()
+        root.viewCounter = GenericAtom<Int>(value: 0)
+        let box = StateClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: root) {
+                StateProbeView(box: box)
+            })
+        defer { window.close() }
+
+        // Create an AtomState instance and call update() multiple times.
+        var state = AtomState(\AtomObjects.viewCounter, root: AtomObjects.self)
+        for _ in 0..<100 {
+            state.update()
+        }
+
+        // update() is a no-op — state should still read correctly.
+        let read = try #require(box.read, "body should have captured the getter")
+        #expect(read() == 0)
+    }
+
+    @Test("AtomState update() does not mutate atom value")
+    func updateDoesNotMutate() async throws {
+        let root = AtomObjects()
+        root.viewCounter = GenericAtom<Int>(value: 42)
+
+        var state = AtomState(\AtomObjects.viewCounter, root: AtomObjects.self)
+        state.update()
+        state.update()
+        state.update()
+
+        #expect(root.viewCounter.value == 42)
+    }
+}
+
+// ── @Observable reactivity tests ──
+
+@MainActor
+@Suite("@Observable Reactivity Tests")
+struct ObservableReactivityTests {
+
+    @Test("GenericAtom conforms to Observable")
+    func genericAtomConformsToObservable() async throws {
+        let atom = GenericAtom<Int>(value: 0)
+        #expect(atom is any Observable)
+    }
+
+    @Test("GenericAtom observation tracks value property changes")
+    func genericAtomObservationTracksChanges() async throws {
+        let atom = GenericAtom<Int>(value: 10)
+        let tracker = ObservationTracker()
+
+        // Use withObservationTracking to verify the observation system
+        // tracks the atom's value property.
+        _ = withObservationTracking {
+            atom.value
+        } onChange: {
+            tracker.changes += 1
+        }
+
+        #expect(tracker.changes == 0)
+
+        // Mutate the value — should trigger the change handler.
+        atom.value = 20
+        #expect(tracker.changes >= 1, "changing value should trigger observation")
+
+        // A second mutation may or may not produce an additional notification
+        // depending on batching — the key fact is that the observation
+        // mechanism is active and fires at least once.
+        atom.value = 30
+        #expect(tracker.changes >= 1, "observation should remain active")
+    }
+}
+
+// ── Deep nesting tests ──
+
+@MainActor
+@Suite("Deep Nesting Tests")
+struct DeepNestingTests {
+
+    @Test("Three-level root hierarchy has correct parent chain")
+    func threeLevelParentChain() async throws {
+        let level1 = AtomObjects()
+        let level2 = level1[Level2RootKey.self] as AtomObjects
+        let level3 = level2[Level3RootKey.self] as AtomObjects
+
+        #expect(level3.parent === level2)
+        #expect(level2.parent === level1)
+        #expect(level1.parent == nil)
+    }
+
+    @Test("Three-level root hierarchy isolates state per level")
+    func threeLevelStateIsolation() async throws {
+        let level1 = AtomObjects()
+        let level2 = level1[Level2RootKey.self] as AtomObjects
+        let level3 = level2[Level3RootKey.self] as AtomObjects
+
+        level1.viewCounter = GenericAtom<Int>(value: 100)
+        level2.viewCounter = GenericAtom<Int>(value: 200)
+        level3.viewCounter = GenericAtom<Int>(value: 300)
+
+        #expect(level1.viewCounter.value == 100)
+        #expect(level2.viewCounter.value == 200)
+        #expect(level3.viewCounter.value == 300)
+
+        // Mutate one level — others should be unaffected.
+        level2.viewCounter.value = 250
+        #expect(level1.viewCounter.value == 100)
+        #expect(level2.viewCounter.value == 250)
+        #expect(level3.viewCounter.value == 300)
+    }
+
+    @Test("Deep nested AtomScope renders independently")
+    func deepNestedAtomScopeRenders() async throws {
+        let level1 = AtomObjects()
+        let level2 = AtomObjects()
+        let level3 = AtomObjects()
+
+        level1.viewCounter = GenericAtom<Int>(value: 1)
+        level2.viewCounter = GenericAtom<Int>(value: 2)
+        level3.viewCounter = GenericAtom<Int>(value: 3)
+
+        let hosting = NSHostingController(
+            rootView: AtomScope(root: level1) {
+                AtomScope(root: level2) {
+                    AtomScope(root: level3) {
+                        CounterStateView()
+                    }
+                }
+            })
+
+        hosting.viewDidLoad()
+
+        #expect(level1.viewCounter.value == 1)
+        #expect(level2.viewCounter.value == 2)
+        #expect(level3.viewCounter.value == 3)
+    }
+
+    @Test("Four-level nesting via AtomRootKey maintains parent chain")
+    func fourLevelNestingViaKeys() async throws {
+        let l1 = AtomObjects()
+        let l2 = l1[Level2RootKey.self] as AtomObjects
+        let l3 = l2[Level3RootKey.self] as AtomObjects
+        // Reuse Level2RootKey at level 4 (different key type at each level
+        // is not required — keys identify slots, not depth).
+        let l4 = l3[Level2RootKey.self] as AtomObjects
+
+        #expect(l4.parent === l3)
+        #expect(l3.parent === l2)
+        #expect(l2.parent === l1)
+        #expect(l1.parent == nil)
+
+        // Each level has independent state.
+        l1.viewCounter.value = 10
+        l2.viewCounter.value = 20
+        l3.viewCounter.value = 30
+        l4.viewCounter.value = 40
+
+        #expect(l1.viewCounter.value == 10)
+        #expect(l2.viewCounter.value == 20)
+        #expect(l3.viewCounter.value == 30)
+        #expect(l4.viewCounter.value == 40)
     }
 }

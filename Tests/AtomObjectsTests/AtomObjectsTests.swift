@@ -240,6 +240,52 @@ struct AtomObjectTests {
         #expect(newChild.parent === root, "new child should be attached")
     }
 
+    @Test("canAttachNestedRoot rejects root with existing parent")
+    func nestedRootCrossParentRejection() async throws {
+        let parent1 = AtomObjects()
+        let child = AtomObjects()
+
+        // Attach child to parent1.
+        parent1[ChildRootKey.self] = child
+        #expect(child.parent === parent1)
+
+        // The validation seam should reject a child that already has a parent.
+        #expect(!AtomRoot.canAttachNestedRoot(child),
+                "child with existing parent should not be attachable")
+    }
+
+    @Test("canAttachNestedRoot accepts root without parent")
+    func nestedRootAttachableWhenOrphan() async throws {
+        let child = AtomObjects()
+        #expect(child.parent == nil)
+        #expect(AtomRoot.canAttachNestedRoot(child),
+                "orphan child should be attachable")
+    }
+
+    @Test("Same-slot re-set produces zero @Observable change notifications")
+    func nestedRootIdempotentNoObservation() async throws {
+        let root = AtomObjects()
+        let child = AtomObjects()
+        root[ChildRootKey.self] = child
+
+        // Observe the `parent` property on the child for changes.
+        // Use nonisolated(unsafe) because the onChange closure is @Sendable
+        // but executes synchronously on the same actor context as the test.
+        nonisolated(unsafe) var changeCount = 0
+        withObservationTracking {
+            _ = child.parent
+        } onChange: {
+            changeCount += 1
+        }
+
+        // Same-slot re-set should be a no-op — zero notifications.
+        root[ChildRootKey.self] = child
+
+        #expect(changeCount == 0,
+                "idempotent re-set must not trigger @Observable change notifications")
+        #expect(child.parent === root, "final parent identity should be preserved")
+    }
+
     // ── AtomObjects Equatable ──
 
     @Test("AtomObjects equatable same instance")

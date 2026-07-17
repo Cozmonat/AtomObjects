@@ -39,10 +39,6 @@ public struct AtomStorage {
 ///
 /// Uses the same `ObjectIdentifier(Key.self)` strategy as ``AtomStorage``.
 /// Values are stored as `AnyObject` — safe because ``AtomRoot`` is a class.
-///
-/// > Important: Mutate nested roots through the ``AtomRoot/subscript(key:)``
-/// > accessor, which enforces the single-parent invariant. Direct storage
-/// > mutation bypasses those checks.
 public struct RootStorage {
 
     private var storage = [ObjectIdentifier: AnyObject]()
@@ -129,7 +125,7 @@ open class AtomRoot {
         }
 
         // Validate incoming child before mutating any state.
-        guard root.parent == nil else {
+        guard AtomRoot.canAttachNestedRoot(root) else {
             fatalError(
                 "Cannot attach nested root for \(Key.self): instance already owned by another root. "
                 + "Make \(Key.self).defaultRoot a computed property that returns a fresh instance."
@@ -143,5 +139,12 @@ open class AtomRoot {
 
         root.parent = self
         roots[Key.self] = root
+    }
+
+    /// Returns `true` if the root can be attached (has no existing parent).
+    /// Narrow `@testable` seam — internal visibility is acceptable for
+    /// verifying the single-parent guard condition without triggering fatalError.
+    internal static func canAttachNestedRoot(_ root: AtomRoot) -> Bool {
+        root.parent == nil
     }
 }

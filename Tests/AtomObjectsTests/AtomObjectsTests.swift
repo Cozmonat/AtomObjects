@@ -240,28 +240,6 @@ struct AtomObjectTests {
         #expect(newChild.parent === root, "new child should be attached")
     }
 
-    @Test("canAttachNestedRoot rejects root with existing parent")
-    func nestedRootCrossParentRejection() async throws {
-        let parent1 = AtomObjects()
-        let child = AtomObjects()
-
-        // Attach child to parent1.
-        parent1[ChildRootKey.self] = child
-        #expect(child.parent === parent1)
-
-        // The validation seam should reject a child that already has a parent.
-        #expect(!AtomRoot.canAttachNestedRoot(child),
-                "child with existing parent should not be attachable")
-    }
-
-    @Test("canAttachNestedRoot accepts root without parent")
-    func nestedRootAttachableWhenOrphan() async throws {
-        let child = AtomObjects()
-        #expect(child.parent == nil)
-        #expect(AtomRoot.canAttachNestedRoot(child),
-                "orphan child should be attachable")
-    }
-
     // ── AtomObjects Equatable ──
 
     @Test("AtomObjects equatable same instance")

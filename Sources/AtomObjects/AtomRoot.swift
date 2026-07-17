@@ -68,10 +68,10 @@ open class AtomRoot {
     /// Write-access is restricted to `internal(set)` so only the attachment
     /// subscript inside this class can mutate the relationship — direct
     /// `child.parent = someRoot` from outside is a compile-time error.
-    public weak internal(set) var parent: AtomRoot?
+    public weak private(set) var parent: AtomRoot?
 
     public var atoms: AtomStorage
-    public var roots: RootStorage
+    public private(set) var roots: RootStorage
 
     public init() {
         atoms = AtomStorage()
@@ -114,17 +114,23 @@ open class AtomRoot {
     /// Single point for attaching a nested root to this parent.
     ///
     /// Ensures:
-    /// 1. A replaced child is detached (its `parent` cleared).
-    /// 2. The incoming child has no existing parent (enforced in all build modes).
-    /// 3. The child's `parent` is set to `self` and stored in ``roots``.
+    /// 1. Idempotent: setting the same child already attached to `self` is a no-op.
+    /// 2. A replaced child is detached (its `parent` cleared).
+    /// 3. The incoming child has no existing parent (enforced in all build modes).
+    /// 4. The child's `parent` is set to `self` and stored in ``roots``.
     private func attachNestedRoot<Key: AtomRootKey>(_ root: Key.Root, for key: Key.Type) {
+        // Idempotent: already attached to this parent — nothing to do.
+        if let existing = roots[Key.self], ObjectIdentifier(existing).isEqual(root), root.parent === self {
+            return
+        }
+
         // Detach the old child, if any.
-        if let existing = roots[Key.self], !ObjectIdentifier(existing).isEqual(root) {
+        if let existing = roots[Key.self] {
             existing.parent = nil
         }
 
         // Enforce single-parent invariant in all build modes.
-        if root.parent != nil {
+        guard AtomRoot.canAttachNestedRoot(root) else {
             fatalError(
                 "Cannot attach nested root for \(Key.self): instance already owned by another root. "
                 + "Make \(Key.self).defaultRoot a computed property that returns a fresh instance."
@@ -133,5 +139,12 @@ open class AtomRoot {
 
         root.parent = self
         roots[Key.self] = root
+    }
+
+    /// Returns `true` if the root can be attached (has no existing parent).
+    /// Factored out so the guard condition is directly testable without
+    /// triggering `fatalError` in the attachment path.
+    internal static func canAttachNestedRoot(_ root: AtomRoot) -> Bool {
+        root.parent == nil
     }
 }

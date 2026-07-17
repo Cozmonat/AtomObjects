@@ -23,10 +23,19 @@ private let actionLogger = Logger(subsystem: "AtomObjects", category: "AtomActio
 /// @AtomAction(MyActions.SubmitForm())
 /// var submit
 ///
+/// @State private var submitError: String?
+///
 /// var body: some View {
 ///     Button("Submit") { submit() }           // fire-and-forget
 ///     Button("Submit (safe)") {
-///         Task { try await $submit() }         // with error handling
+///         Task {
+///             do {
+///                 try await $submit()
+///                 submitError = nil
+///             } catch {
+///                 submitError = error.localizedDescription
+///             }
+///         }
 ///     }
 /// }
 /// ```

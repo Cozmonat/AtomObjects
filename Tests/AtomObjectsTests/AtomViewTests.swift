@@ -1101,30 +1101,38 @@ struct DeepNestingTests {
         #expect(level3.viewCounter.value == 300)
     }
 
-    @Test("Deep nested AtomScope renders independently")
-    func deepNestedAtomScopeRenders() async throws {
+    @Test("Deep nested AtomScope with live probe reads/writes nearest scope")
+    func deepNestedAtomScopeLiveProbe() async throws {
         let level1 = AtomObjects()
         let level2 = AtomObjects()
         let level3 = AtomObjects()
 
-        level1.viewCounter = GenericAtom<Int>(value: 1)
-        level2.viewCounter = GenericAtom<Int>(value: 2)
-        level3.viewCounter = GenericAtom<Int>(value: 3)
+        level1.viewCounter = GenericAtom<Int>(value: 10)
+        level2.viewCounter = GenericAtom<Int>(value: 20)
+        level3.viewCounter = GenericAtom<Int>(value: 30)
 
-        let hosting = NSHostingController(
-            rootView: AtomScope(root: level1) {
+        let box = StateClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: level1) {
                 AtomScope(root: level2) {
                     AtomScope(root: level3) {
-                        CounterStateView()
+                        StateProbeView(box: box)
                     }
                 }
             })
+        defer { window.close() }
 
-        hosting.viewDidLoad()
+        // Read through the probe — should see the innermost scope's value.
+        let read = try #require(box.read, "body should have captured the getter")
+        #expect(read() == 30, "probe should read from nearest (level3) scope")
 
-        #expect(level1.viewCounter.value == 1)
-        #expect(level2.viewCounter.value == 2)
-        #expect(level3.viewCounter.value == 3)
+        // Write through the probe — should modify only level3.
+        let write = try #require(box.write, "body should have captured the setter")
+        write(999)
+        #expect(level3.viewCounter.value == 999, "write should affect nearest scope")
+        #expect(level2.viewCounter.value == 20, "outer scopes should be unaffected")
+        #expect(level1.viewCounter.value == 10, "outer scopes should be unaffected")
     }
 
     @Test("Four-level nesting via AtomRootKey maintains parent chain")
@@ -1182,37 +1190,4 @@ struct DeepNestingTests {
         #expect(parentRoot.viewCounter.value == 100, "parent scope should be unaffected")
     }
 
-    @Test("Live probe writes to nearest scope without affecting parent")
-    func liveProbeWritesNearestScope() async throws {
-        let parentRoot = AtomObjects()
-        let childRoot = AtomObjects()
-
-        parentRoot.viewCounter = GenericAtom<Int>(value: 10)
-        childRoot.viewCounter = GenericAtom<Int>(value: 20)
-
-        let box = StateClosureBox()
-
-        let window = renderInWindow(
-            AtomScope(root: parentRoot) {
-                AtomScope(root: childRoot) {
-                    StateProbeView(box: box)
-                }
-            })
-        defer { window.close() }
-
-        let write = try #require(box.write, "body should have captured the setter")
-
-        // Multiple writes should all target the child scope.
-        write(1)
-        #expect(childRoot.viewCounter.value == 1)
-        #expect(parentRoot.viewCounter.value == 10)
-
-        write(2)
-        #expect(childRoot.viewCounter.value == 2)
-        #expect(parentRoot.viewCounter.value == 10)
-
-        // Equal value exercises the setIfNotEqual skip branch.
-        write(2)
-        #expect(childRoot.viewCounter.value == 2)
-    }
 }

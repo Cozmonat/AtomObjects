@@ -215,9 +215,15 @@ struct AtomObjectTests {
         root[ChildRootKey.self] = child
         #expect(child.parent === root)
 
-        // Setting the same child again should not crash.
+        // Capture the parent identity before re-set.
+        let parentBefore = child.parent
+
+        // Setting the same child again should be a no-op — no mutation at all.
         root[ChildRootKey.self] = child
+
         #expect(child.parent === root, "idempotent re-set preserves parent")
+        #expect(child.parent === parentBefore,
+                "idempotent re-set should not change the parent reference")
     }
 
     @Test("Replacing a nested root detaches the displaced child")

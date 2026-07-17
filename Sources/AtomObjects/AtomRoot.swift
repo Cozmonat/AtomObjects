@@ -65,7 +65,7 @@ open class AtomRoot {
 
     /// Weak back-reference to the parent root.
     /// `weak` to prevent retain cycles: parent → (strong) → child → (weak) → parent.
-    /// Write-access is restricted to `internal(set)` so only the attachment
+    /// Write-access is restricted to `private(set)` so only the attachment
     /// subscript inside this class can mutate the relationship — direct
     /// `child.parent = someRoot` from outside is a compile-time error.
     public weak private(set) var parent: AtomRoot?
@@ -113,28 +113,28 @@ open class AtomRoot {
 
     /// Single point for attaching a nested root to this parent.
     ///
-    /// Ensures:
+    /// Mutation order: guard → detach → attach.
     /// 1. Idempotent: setting the same child already attached to `self` is a no-op.
-    /// 2. A replaced child is detached (its `parent` cleared).
-    /// 3. The incoming child has no existing parent (enforced in all build modes).
-    /// 4. The child's `parent` is set to `self` and stored in ``roots``.
+    /// 2. Validate incoming child has no existing parent (before any mutation).
+    /// 3. Detach the replaced child (its `parent` cleared).
+    /// 4. Attach the new child (`parent` set to `self`, stored in ``roots``).
     private func attachNestedRoot<Key: AtomRootKey>(_ root: Key.Root, for key: Key.Type) {
         // Idempotent: already attached to this parent — nothing to do.
-        if let existing = roots[Key.self], ObjectIdentifier(existing).isEqual(root), root.parent === self {
+        if let existing = roots[Key.self], existing === root, root.parent === self {
             return
         }
 
-        // Detach the old child, if any.
-        if let existing = roots[Key.self] {
-            existing.parent = nil
-        }
-
-        // Enforce single-parent invariant in all build modes.
+        // Validate incoming child before mutating any state.
         guard AtomRoot.canAttachNestedRoot(root) else {
             fatalError(
                 "Cannot attach nested root for \(Key.self): instance already owned by another root. "
                 + "Make \(Key.self).defaultRoot a computed property that returns a fresh instance."
             )
+        }
+
+        // Detach the old child, if any.
+        if let existing = roots[Key.self] {
+            existing.parent = nil
         }
 
         root.parent = self

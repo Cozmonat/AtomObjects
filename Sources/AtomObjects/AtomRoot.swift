@@ -57,12 +57,18 @@ public struct RootStorage {
 ///   nested roots. The owning parent holds a strong reference to the child
 ///   via ``RootStorage``, while the child holds only a `weak` back-reference.
 /// - Thread safety: All public APIs are isolated to `@MainActor` (package default).
+/// - Nested roots: Use the ``subscript(key:)`` accessor (constrained to
+///   ``AtomRootKey``) for all attachment. Directly mutating ``parent`` is
+///   blocked — only this class can set the back-reference internally.
 @Observable
 open class AtomRoot {
 
     /// Weak back-reference to the parent root.
     /// `weak` to prevent retain cycles: parent → (strong) → child → (weak) → parent.
-    public weak var parent: AtomRoot?
+    /// Write-access is restricted to `internal(set)` so only the attachment
+    /// subscript inside this class can mutate the relationship — direct
+    /// `child.parent = someRoot` from outside is a compile-time error.
+    public weak internal(set) var parent: AtomRoot?
 
     public var atoms: AtomStorage
     public var roots: RootStorage
@@ -94,18 +100,38 @@ open class AtomRoot {
                 return root
             } else {
                 let root = Key.defaultRoot
-                assert(
-                    root.parent == nil,
-                    "defaultRoot for \(Key.self) returned an instance already owned by another root — make defaultRoot a computed property"
-                )
-                roots[Key.self] = root
-                root.parent = self
+                attachNestedRoot(root, for: Key.self)
                 return root
             }
         }
         set {
-            roots[Key.self] = newValue
-            newValue.parent = self
+            attachNestedRoot(newValue, for: Key.self)
         }
+    }
+
+    // ── Nested-root attachment chokepoint ──
+
+    /// Single point for attaching a nested root to this parent.
+    ///
+    /// Ensures:
+    /// 1. A replaced child is detached (its `parent` cleared).
+    /// 2. The incoming child has no existing parent (enforced in all build modes).
+    /// 3. The child's `parent` is set to `self` and stored in ``roots``.
+    private func attachNestedRoot<Key: AtomRootKey>(_ root: Key.Root, for key: Key.Type) {
+        // Detach the old child, if any.
+        if let existing = roots[Key.self], !ObjectIdentifier(existing).isEqual(root) {
+            existing.parent = nil
+        }
+
+        // Enforce single-parent invariant in all build modes.
+        if root.parent != nil {
+            fatalError(
+                "Cannot attach nested root for \(Key.self): instance already owned by another root. "
+                + "Make \(Key.self).defaultRoot a computed property that returns a fresh instance."
+            )
+        }
+
+        root.parent = self
+        roots[Key.self] = root
     }
 }

@@ -178,16 +178,27 @@ struct CounterView: View {
 }
 ```
 
-The projected value `$action` returns an async throwing closure, so you can await it:
+The projected value `$action` returns an async throwing closure, so you can await it
+and handle errors explicitly:
 
 ```swift
+@State private var actionError: String?
+
 Button("Increment") {
     Task {
-        try await $increment()
-        // Run follow-up work here
+        do {
+            try await $increment()
+            actionError = nil  // Clear any previous error
+        } catch {
+            actionError = error.localizedDescription
+        }
     }
 }
 ```
+
+> **Note:** The fire-and-forget `wrappedValue` (`action()`) logs errors via `os.Logger`
+> and raises `assertionFailure` in debug builds. Use the projected value (`$action()`)
+> when you need explicit error handling or to `await` completion.
 
 ## Nested Roots
 

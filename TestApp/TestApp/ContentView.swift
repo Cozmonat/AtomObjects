@@ -40,34 +40,50 @@ struct Controls: View {
     @State
     var isEditing = false
 
+    @State
+    private var actionError: String?
+
     var body: some View {
-        HStack {
-            Button {
-                decrement()
-            } label: {
-                Image(systemName: "minus.circle.fill")
-                    .font(.title)
-            }
-            .accessibilityIdentifier("decrement")
-
-            Slider(
-                value: $counter, in: 0...10,
-                onEditingChanged: { editing in
-                    isEditing = editing
+        VStack {
+            HStack {
+                Button {
+                    decrement()
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title)
                 }
-            ) {
-                Text("Value")
+                .accessibilityIdentifier("decrement")
+
+                Slider(
+                    value: $counter, in: 0...10,
+                    onEditingChanged: { editing in
+                        isEditing = editing
+                    }
+                ) {
+                    Text("Value")
+                }
+
+                Button {
+                    Task {
+                        do {
+                            try await $increment()
+                            actionError = nil
+                        } catch {
+                            actionError = error.localizedDescription
+                        }
+                    }
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title)
+                }
+                .accessibilityIdentifier("increment")
             }
 
-            Button {
-                Task {
-                    try await $increment()
-                }
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .font(.title)
+            if let error = actionError {
+                Text("Error: \(error)")
+                    .foregroundStyle(.red)
+                    .font(.caption)
             }
-            .accessibilityIdentifier("increment")
         }
     }
 }

@@ -1152,4 +1152,67 @@ struct DeepNestingTests {
         #expect(l3.viewCounter.value == 30)
         #expect(l4.viewCounter.value == 40)
     }
+
+    @Test("Live probe reads from nearest scope in nested hierarchy")
+    func liveProbeReadsNearestScope() async throws {
+        let parentRoot = AtomObjects()
+        let childRoot = AtomObjects()
+
+        parentRoot.viewCounter = GenericAtom<Int>(value: 100)
+        childRoot.viewCounter = GenericAtom<Int>(value: 200)
+
+        let box = StateClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: parentRoot) {
+                AtomScope(root: childRoot) {
+                    StateProbeView(box: box)
+                }
+            })
+        defer { window.close() }
+
+        // Read through the probe — should see the child scope's value.
+        let read = try #require(box.read, "body should have captured the getter")
+        #expect(read() == 200, "probe should read from nearest (child) scope, not parent")
+
+        // Write through the probe — should modify only the child scope.
+        let write = try #require(box.write, "body should have captured the setter")
+        write(999)
+        #expect(childRoot.viewCounter.value == 999, "write should affect child scope")
+        #expect(parentRoot.viewCounter.value == 100, "parent scope should be unaffected")
+    }
+
+    @Test("Live probe writes to nearest scope without affecting parent")
+    func liveProbeWritesNearestScope() async throws {
+        let parentRoot = AtomObjects()
+        let childRoot = AtomObjects()
+
+        parentRoot.viewCounter = GenericAtom<Int>(value: 10)
+        childRoot.viewCounter = GenericAtom<Int>(value: 20)
+
+        let box = StateClosureBox()
+
+        let window = renderInWindow(
+            AtomScope(root: parentRoot) {
+                AtomScope(root: childRoot) {
+                    StateProbeView(box: box)
+                }
+            })
+        defer { window.close() }
+
+        let write = try #require(box.write, "body should have captured the setter")
+
+        // Multiple writes should all target the child scope.
+        write(1)
+        #expect(childRoot.viewCounter.value == 1)
+        #expect(parentRoot.viewCounter.value == 10)
+
+        write(2)
+        #expect(childRoot.viewCounter.value == 2)
+        #expect(parentRoot.viewCounter.value == 10)
+
+        // Equal value exercises the setIfNotEqual skip branch.
+        write(2)
+        #expect(childRoot.viewCounter.value == 2)
+    }
 }

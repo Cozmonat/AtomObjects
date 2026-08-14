@@ -26,4 +26,10 @@ public class GenericAtom<Value>: AtomObject {
     public required init(value: Value) {
         self.value = value
     }
+
+    // Swift 6.3.3 crashes in the SIL EarlyPerfInliner while optimizing this
+    // class's *implicit* deinit, so `-O` builds cannot compile the module at
+    // all. Declaring the deinit explicitly is enough to avoid it. Remove once
+    // the compiler no longer needs the hint.
+    deinit {}
 }

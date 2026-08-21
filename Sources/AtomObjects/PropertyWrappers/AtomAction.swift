@@ -61,7 +61,7 @@ where Action: AtomObjectsAction {
     /// Fire-and-forget closure. Spawns a `Task { @MainActor in ... }`, logs errors
     /// via `os.Logger`, and raises `assertionFailure` in debug builds.
     /// `CancellationError` is treated as a normal outcome, not a failure.
-    public var wrappedValue: (() -> Void) {
+    public var wrappedValue: () -> Void {
         return {
             guard let root = self.root else { return }
             Task { @MainActor in
@@ -78,7 +78,7 @@ where Action: AtomObjectsAction {
     }
 
     /// Async throws closure for explicit error handling and awaiting.
-    public var projectedValue: (() async throws -> Void) {
+    public var projectedValue: () async throws -> Void {
         return {
             guard let root = self.root else { return }
             try await self.action.perform(with: root)
@@ -87,5 +87,77 @@ where Action: AtomObjectsAction {
 
     public init(_ action: @autoclosure @escaping () -> Action) {
         self.action = action()
+    }
+}
+
+/// A property wrapper that exposes a ``ParameterizedAtomObjectsAction`` as a callable closure.
+///
+/// - **`wrappedValue`**: fire-and-forget `(Input) -> Void`. Errors are logged
+///   via `os.Logger` and trigger `assertionFailure` in debug builds.
+///   `CancellationError` is ignored as a normal outcome.
+/// - **`projectedValue`** (`$action`): `(Input) async throws -> Output`.
+///
+/// ```swift
+/// @AtomInputAction(MyActions.SavePreset())
+/// var save
+///
+/// Button("Save") {
+///     Task {
+///         let preset = try await $save(draft)
+///     }
+/// }
+/// ```
+@propertyWrapper public struct AtomInputAction<Action>: DynamicProperty, Equatable
+where Action: ParameterizedAtomObjectsAction {
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        true
+    }
+
+    public typealias Root = Action.Root
+    public typealias Input = Action.Input
+    public typealias Output = Action.Output
+
+    private var action: Action
+
+    @Environment(\.atomRoot) private var environmentRoot
+
+    private var root: Root? {
+        environmentRoot as? Root
+    }
+
+    public var wrappedValue: (Input) -> Void {
+        return { input in
+            guard let root = self.root else { return }
+            Task { @MainActor in
+                do {
+                    _ = try await self.action.perform(with: root, input: input)
+                } catch is CancellationError {
+                } catch {
+                    actionLogger.error("\(String(describing: Action.self)) failed: \(error)")
+                    assertionFailure("AtomAction failed: \(error)")
+                }
+            }
+        }
+    }
+
+    public var projectedValue: (Input) async throws -> Output {
+        return { input in
+            guard let root = self.root else {
+                return try await Self.missingRootOutput()
+            }
+            return try await self.action.perform(with: root, input: input)
+        }
+    }
+
+    public init(_ action: @autoclosure @escaping () -> Action) {
+        self.action = action()
+    }
+
+    private static func missingRootOutput() async throws -> Output {
+        if let void = () as? Output {
+            return void
+        }
+        throw AtomObjectsActionError.missingRoot
     }
 }

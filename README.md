@@ -41,6 +41,7 @@ dependencies: [
 | `AtomScope` / `.atomScope()` | View wrapper / modifier that injects a root into the environment |
 | `@AtomState` | Property wrapper that reads/writes an atom and refreshes the view |
 | `@AtomAction` | Property wrapper that invokes an `AtomObjectsAction` against the root |
+| `@AtomInputAction` | Property wrapper for `ParameterizedAtomObjectsAction` (input/output) |
 | `@AtomValue` | Property wrapper for direct atom access (e.g., inside actions) |
 
 ## Setup
@@ -199,6 +200,37 @@ Button("Increment") {
 > **Note:** The fire-and-forget `wrappedValue` (`action()`) logs errors via `os.Logger`
 > and raises `assertionFailure` in debug builds. Use the projected value (`$action()`)
 > when you need explicit error handling or to `await` completion.
+
+### Actions with input and output
+
+When a command needs an argument at call time, or needs to return a value, use
+`ParameterizedAtomObjectsAction` with `@AtomInputAction`.
+
+```swift
+struct SavePreset: ParameterizedAtomObjectsAction {
+    func perform(with root: AtomObjects, input: String) async throws -> String {
+        @AtomValue(\.name, in: root) var name
+        name = input
+        return input
+    }
+}
+
+struct EditorView: View {
+    @AtomInputAction(SavePreset())
+    var save
+
+    var body: some View {
+        Button("Save") {
+            Task {
+                let stored = try await $save("draft")
+            }
+        }
+    }
+}
+```
+
+If `$save` runs with no root in the environment, a Void-output action does
+nothing. A non-Void output throws `AtomObjectsActionError.missingRoot`.
 
 ## Nested Roots
 

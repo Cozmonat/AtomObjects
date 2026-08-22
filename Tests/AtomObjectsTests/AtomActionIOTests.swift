@@ -22,7 +22,8 @@ private enum IOActionError: Error {
 }
 
 /// Existing Void/Void shape: implements only `perform(with:)`.
-private struct VoidBumpAction: AtomObjectsAction {
+/// Stored-property-free, so its implicit `init()` witnesses `DefaultInitializableAction`.
+private struct VoidBumpAction: AtomObjectsAction, DefaultInitializableAction {
     func perform(with root: AtomObjects) async throws {
         @AtomValue(\.ioCounter, in: root) var counter
         counter += 1
@@ -33,7 +34,8 @@ private struct VoidBumpAction: AtomObjectsAction {
 }
 
 /// Parameterized shape: implements only `perform(with:input:)`.
-private struct EchoAction: ParameterizedAtomObjectsAction {
+/// Stored-property-free, so its implicit `init()` witnesses `DefaultInitializableAction`.
+private struct EchoAction: ParameterizedAtomObjectsAction, DefaultInitializableAction {
     typealias Input = String
     typealias Output = String
 
@@ -108,6 +110,38 @@ private struct ParameterizedProbeView: View {
     var body: some View {
         box.fire = echo
         box.fireAsync = $echo
+        return Color.clear
+    }
+}
+
+private struct MetatypeInputProbeView: View {
+    @AtomInputAction(EchoAction.self)
+    var echo
+
+    let box: ParameterizedClosureBox
+
+    var body: some View {
+        box.fire = echo
+        box.fireAsync = $echo
+        return Color.clear
+    }
+}
+
+@MainActor
+private final class VoidClosureBox {
+    var fire: (() -> Void)?
+    var fireAsync: (() async throws -> Void)?
+}
+
+private struct MetatypeVoidProbeView: View {
+    @AtomAction(VoidBumpAction.self)
+    var bump
+
+    let box: VoidClosureBox
+
+    var body: some View {
+        box.fire = bump
+        box.fireAsync = $bump
         return Color.clear
     }
 }
@@ -273,6 +307,55 @@ struct AtomInputActionWrapperTests {
         let fire = try #require(captured)
         await #expect(throws: IOActionError.self) {
             try await fire(0)
+        }
+    }
+}
+
+@MainActor
+@Suite("metatype shorthand for parameterless actions")
+struct MetatypeShorthandTests {
+
+    @Test("@AtomInputAction(EchoAction.self) routes input and output through perform")
+    func metatypeInputRoutesThroughPerform() async throws {
+        EchoAction.lastRoute = ""
+        let root = AtomObjects()
+        let box = ParameterizedClosureBox()
+        let window = renderIOWindow(
+            AtomScope(root: root) {
+                MetatypeInputProbeView(box: box)
+            })
+        defer { window.close() }
+
+        let fireAsync = try #require(box.fireAsync)
+        let output = try await fireAsync("ab")
+        #expect(output == "echo:ab")
+        #expect(root.ioCounter.value == 2)
+        #expect(EchoAction.lastRoute == "input")
+    }
+
+    @Test("@AtomAction(VoidBumpAction.self) performs against the root")
+    func metatypeVoidPerformsAgainstRoot() async throws {
+        VoidBumpAction.lastRoute = ""
+        let root = AtomObjects()
+        let box = VoidClosureBox()
+        let window = renderIOWindow(
+            AtomScope(root: root) {
+                MetatypeVoidProbeView(box: box)
+            })
+        defer { window.close() }
+
+        let fire = try #require(box.fire)
+        fire()
+        try await waitUntilIO { root.ioCounter.value == 1 }
+        #expect(root.ioCounter.value == 1)
+        #expect(VoidBumpAction.lastRoute == "void")
+    }
+
+    @Test("metatype-constructed input action without root throws for non-Void output")
+    func metatypeMissingRootNonVoidThrows() async throws {
+        let wrapper = AtomInputAction(EchoAction.self)
+        await #expect(throws: AtomObjectsActionError.missingRoot) {
+            try await wrapper.projectedValue("x")
         }
     }
 }

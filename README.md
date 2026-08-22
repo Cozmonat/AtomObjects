@@ -42,6 +42,7 @@ dependencies: [
 | `@AtomState` | Property wrapper that reads/writes an atom and refreshes the view |
 | `@AtomAction` | Property wrapper that invokes an `AtomObjectsAction` against the root |
 | `@AtomInputAction` | Property wrapper for `ParameterizedAtomObjectsAction` (input/output) |
+| `DefaultInitializableAction` | Opt-in marker enabling the metatype shorthand for parameterless actions |
 | `@AtomValue` | Property wrapper for direct atom access (e.g., inside actions) |
 
 ## Setup
@@ -179,6 +180,23 @@ struct CounterView: View {
 }
 ```
 
+If an action takes no init parameters, conform it to `DefaultInitializableAction`
+and pass the metatype instead of an instance:
+
+```swift
+struct ResetCounter: AtomObjectsAction, DefaultInitializableAction {
+    func perform(with root: AtomObjects) async throws {
+        @AtomValue(\.counter, in: root) var counter
+        counter = 0
+    }
+}
+
+struct ResetView: View {
+    @AtomAction(ResetCounter.self)
+    var reset
+}
+```
+
 The projected value `$action` returns an async throwing closure, so you can await it
 and handle errors explicitly:
 
@@ -207,7 +225,7 @@ When a command needs an argument at call time, or needs to return a value, use
 `ParameterizedAtomObjectsAction` with `@AtomInputAction`.
 
 ```swift
-struct SavePreset: ParameterizedAtomObjectsAction {
+struct SavePreset: ParameterizedAtomObjectsAction, DefaultInitializableAction {
     func perform(with root: AtomObjects, input: String) async throws -> String {
         @AtomValue(\.name, in: root) var name
         name = input
@@ -216,7 +234,7 @@ struct SavePreset: ParameterizedAtomObjectsAction {
 }
 
 struct EditorView: View {
-    @AtomInputAction(SavePreset())
+    @AtomInputAction(SavePreset.self)
     var save
 
     var body: some View {
@@ -228,6 +246,11 @@ struct EditorView: View {
     }
 }
 ```
+
+Because `SavePreset` takes no init parameters, it conforms to
+`DefaultInitializableAction` and can be passed as the metatype
+`SavePreset.self` instead of `SavePreset()` — actions with init parameters
+keep using the instance form.
 
 If `$save` runs with no root in the environment, a Void-output action does
 nothing. A non-Void output throws `AtomObjectsActionError.missingRoot`.

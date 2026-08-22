@@ -45,6 +45,25 @@ public protocol ParameterizedAtomObjectsAction {
     func perform(with root: Root, input: Input) async throws -> Output
 }
 
+/// A flat marker protocol for actions constructible with no arguments.
+///
+/// Conforming actions can be passed to the action wrappers as a metatype
+/// instead of an instance — `@AtomAction(MyAction.self)` and
+/// `@AtomInputAction(MyAction.self)` — skipping the empty `()`.
+///
+/// A stored-property-free struct's implicit `init()` satisfies this
+/// requirement, so most parameterless actions need no added code. Actions
+/// with required init parameters cannot conform, so the shorthand stays
+/// unavailable exactly where it would be meaningless.
+///
+/// Deliberately a flat marker rather than a refinement of
+/// ``AtomObjectsAction`` or ``ParameterizedAtomObjectsAction``: subprotocols
+/// of those protocols trip `#ConformanceIsolation` on user conformances under
+/// this package's MainActor default isolation.
+public protocol DefaultInitializableAction {
+    init()
+}
+
 /// Errors thrown by action wrappers before `perform` runs.
 public enum AtomObjectsActionError: Error, Sendable, Equatable {
     /// `$action` was invoked with no matching ``AtomRoot`` in the environment.

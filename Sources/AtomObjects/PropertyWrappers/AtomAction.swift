@@ -90,6 +90,17 @@ where Action: AtomObjectsAction {
     }
 }
 
+/// Metatype shorthand for actions conforming to ``DefaultInitializableAction``:
+/// `@AtomAction(MyAction.self)` instead of `@AtomAction(MyAction())`.
+extension AtomAction where Action: DefaultInitializableAction {
+
+    /// Creates the wrapper from an action's metatype, constructing the action
+    /// with its no-argument initializer.
+    public init(_ type: Action.Type) {
+        self.init(type.init())
+    }
+}
+
 /// A property wrapper that exposes a ``ParameterizedAtomObjectsAction`` as a callable closure.
 ///
 /// - **`wrappedValue`**: fire-and-forget `(Input) -> Void`. Errors are logged
@@ -159,5 +170,16 @@ where Action: ParameterizedAtomObjectsAction {
             return void
         }
         throw AtomObjectsActionError.missingRoot
+    }
+}
+
+/// Metatype shorthand for actions conforming to ``DefaultInitializableAction``:
+/// `@AtomInputAction(MyAction.self)` instead of `@AtomInputAction(MyAction())`.
+extension AtomInputAction where Action: DefaultInitializableAction {
+
+    /// Creates the wrapper from an action's metatype, constructing the action
+    /// with its no-argument initializer.
+    public init(_ type: Action.Type) {
+        self.init(type.init())
     }
 }
